@@ -1,5 +1,7 @@
-# Data
+# Data & insights(already mentioned in .ipyb files)
 data/
+insights/
+stuff/
 
 # Python cache
 __pycache__/
