@@ -1,7 +1,5 @@
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 from . import clean_data as cd
 from . import load_data as ld
 import src.config as config
@@ -29,7 +27,7 @@ To-Dos:
    - Total_Items_Cancelled (sum of cancelled quantities)
    - Days_Since_Last_Cancellation (reference_date - max cancellation date)
 
-6. DERIVED FEATURES:
+6. DERIVED FEATURES: DONE BBG
    - Net_Revenue (Total_Purchased - could also track if you want gross)
    - Cancellation_Rate (Total_Cancelled / (Total_Purchased + Total_Cancelled))
    - Order_Completion_Rate (Num_Purchase_Orders / (Num_Purchase_Orders + Num_Cancellations))
@@ -40,30 +38,22 @@ To-Dos:
    - Days_Since_Last_Purchase (reference_date - Last_Purchase_Date)
    - Days_Since_First_Purchase (reference_date - First_Purchase_Date)
    - Purchase_Span (Last_Purchase_Date - First_Purchase_Date)
-   - Avg_Days_Between_Orders (Purchase_Span / (Num_Orders - 1)) [if Num_Orders > 1]
+   - Avg_Days_Between_Orders (Purchase_Span / (Num_Orders - 1)) [if Num_Orders > 1 else 0]
 
-8. PRODUCT DIVERSITY (Optional, if not saving for NLP stage):
-   - Num_Unique_Products (count distinct StockCode)
-   - Product_Diversity_Ratio (Num_Unique_Products / Total_Items_Bought)
-
-9. HANDLE EDGE CASES:
+8. HANDLE EDGE CASES: DONE BBG
    - Fill NaN for customers with 1 order (Avg_Days_Between_Orders)
    - Fill NaN for customers with 0 cancellations (Cancellation_Rate = 0)
    - Check for any infinite values
 
-10. CREATE LABELS (using data AFTER reference date):
+9. CREATE LABELS (using data AFTER reference date): DONE BBG
     - Churned (1 if no purchase after reference date, 0 otherwise)
+    - High_Value_Customer (1 if future purchase amount > 80th percentile, 0 otherwise)
+    - High_Future_Cancellation (1 if future cancellations >= 3 or cancellation ratio >= 20%, 0 otherwise)
 
-11. CLEAN UP:
+10. CLEAN UP: DONE BBG
     - Drop intermediate columns (raw dates, keep only derived features)
     - Keep only relevant features for modeling
     - Save to data/processed/customer_features.csv
-
-12. VALIDATE:
-    - Check for missing values
-    - Check data types
-    - Verify no data leakage (all features use data before reference date only)
-    - Spot-check a few customers manually
 '''
 
 #1,2: finding reference date & dividing dataset wrt reference date
@@ -140,7 +130,7 @@ def cancellation_features(df_before,reference_date):
     print("Customers with cancellations b4 reference date:", df_temp2['customerid'].nunique())
     
     df_cancel=df_temp2.groupby('customerid').agg(
-        total_cancellation_count=('is_cancellation','nunique'),
+        total_cancellation_count=('invoiceno','nunique'),
         total_cancellation_amnt=('cancel_amnt','sum'),
         total_cancelled_qty=('cancel_qty','sum'),
         last_cancel_date=('invoicedate','max')
@@ -170,12 +160,51 @@ def derive_features(customer_df):
     
     return customer_df
 
+def create_labels(df_after,customer_df):
+    customer_df['churn']=~(customer_df['customerid'].isin(df_after[~df_after['is_cancellation']]['customerid'])) # ~ lgaya kyuki agr present h toh label 0 aana chahiye instead of 1
+    customer_df['churn'] = customer_df['churn'].astype(int)
+    
+    #creating high value customer label
+    future_purchase=df_after[~df_after['is_cancellation']].groupby('customerid').agg({
+        'purchase_amnt':'sum'
+    }).rename(columns={'purchase_amnt':'future_purchase_amnt'}).reset_index()
+    
+    threshold=future_purchase['future_purchase_amnt'].quantile(0.80)
+    future_purchase['high_value_customer']=(future_purchase['future_purchase_amnt']>threshold).astype(int)
+    
+    #creating future high cancellation customer label
+    future_cancel=df_after[df_after['is_cancellation']].groupby('customerid').agg({
+        'invoiceno':'nunique',
+        'cancel_amnt':'sum'
+    }).rename(columns={'invoiceno':'total_future_cancel','cancel_amnt':'future_cancel_amnt'}).reset_index()
+    
+    future_cancel=future_cancel.merge(future_purchase,on='customerid',how='left')
+    future_cancel['future_purchase_amnt'] = future_cancel['future_purchase_amnt'].fillna(0)
+    
+    future_cancel['future_cancel_ratio']=future_cancel['future_cancel_amnt']/(future_cancel['future_purchase_amnt']+future_cancel['future_cancel_amnt'])
+    future_cancel['high_future_cancellation']=(future_cancel['total_future_cancel']>=3) | (future_cancel['future_cancel_ratio']>=0.20)
+    future_cancel['high_future_cancellation']=future_cancel['high_future_cancellation'].astype(int)
+    
+    customer_df=customer_df.merge(future_purchase['high_value_customer'],on='customerid',how='left')
+    customer_df=customer_df.merge(future_cancel['high_future_cancellation'],on='customerid',how='left')
+    
+    customer_df['high_value_customer']=customer_df['high_value_customer'].fillna(0)
+    customer_df['high_future_cancellation']=customer_df['high_future_cancellation'].fillna(0)
+    
+    return customer_df
+
+def save_customer_data(customer_df, filepath):
+    customer_df.to_csv(filepath, index=False)
+    print(f"Customer-level features saved to {filepath}")
+    
 def feature_eng(df):
     df_before,df_after,reference_date=set_reference_date(df,reference_date=None)
     df_purchase=purchase_features(df_before,reference_date)
     df_cancel=cancellation_features(df_before,reference_date)
     customer_df=merge_datasets(df_purchase,df_cancel)
     customer_df=derive_features(customer_df)
+    customer_df=create_labels(df_after,customer_df)
+    save_customer_data(customer_df,filepath=config.customer_filepath)
     print(f"df_purchase shape: {df_purchase.shape}")
     print(f"purchase features:\n")
     ld.dataset_overview(df_purchase)
