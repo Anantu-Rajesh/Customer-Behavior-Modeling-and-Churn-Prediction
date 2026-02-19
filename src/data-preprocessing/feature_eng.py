@@ -156,6 +156,12 @@ def derive_features(customer_df):
     customer_df['order_completion_rate'] = customer_df['count_orders'] / (customer_df['count_orders'] + customer_df['total_cancellation_count'])
     customer_df['return_purchase_ratio'] = customer_df['total_cancelled_qty'] / customer_df['tot_items'].fillna(0).replace([np.inf], 0)
     
+    customer_df['per_day_purchase_amnt']=customer_df['total_purchase']/customer_df['days_since_first_purchase'] #could have high correlation
+    
+    customer_df['activity_gap']=0
+    multi_order=customer_df['count_orders']>1
+    customer_df.loc[multi_order,'activity_gap']=(customer_df.loc[multi_order,"days_since_last_purchase"]>2*customer_df.loc[multi_order,"avg_days_between_orders"]).astype(int)
+    
     customer_df = customer_df.replace([np.inf, -np.inf], 0)
     
     return customer_df
@@ -185,13 +191,16 @@ def create_labels(df_after,customer_df):
     future_cancel['high_future_cancellation']=(future_cancel['total_future_cancel']>=3) | (future_cancel['future_cancel_ratio']>=0.20)
     future_cancel['high_future_cancellation']=future_cancel['high_future_cancellation'].astype(int)
     
-    customer_df=customer_df.merge(future_purchase['high_value_customer'],on='customerid',how='left')
-    customer_df=customer_df.merge(future_cancel['high_future_cancellation'],on='customerid',how='left')
+    customer_df=customer_df.merge(future_purchase[['customerid','high_value_customer']],on='customerid',how='left')
+    customer_df=customer_df.merge(future_cancel[['customerid','high_future_cancellation']],on='customerid',how='left')
     
-    customer_df['high_value_customer']=customer_df['high_value_customer'].fillna(0)
-    customer_df['high_future_cancellation']=customer_df['high_future_cancellation'].fillna(0)
+    customer_df['high_value_customer']=customer_df['high_value_customer'].fillna(0).astype(int)
+    customer_df['high_future_cancellation']=customer_df['high_future_cancellation'].fillna(0).astype(int)
+    customer_df['customerid']=customer_df['customerid'].astype(int)
     
     return customer_df
+
+    
 
 def save_customer_data(customer_df, filepath):
     customer_df.to_csv(filepath, index=False)
