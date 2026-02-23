@@ -5,7 +5,14 @@ import src.config as config
 
 def load_data(filepath):
     if os.path.exists(filepath):
-        df=pd.read_excel(filepath)
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext == ".csv":
+            df = pd.read_csv(filepath)
+        elif ext in [".xls", ".xlsx", ".xlsm", ".xlsb"]:
+            df = pd.read_excel(filepath)
+        else:
+            raise ValueError(f"Unsupported file format: {ext}")
+        
         print(f"\nDataset loaded succesfully.")
         print(f"\nDataset shape: {df.shape}")
         print(f"\nDataset size: {os.path.getsize(filepath) / 1024 / 1024:.2f} MB")

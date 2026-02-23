@@ -63,7 +63,7 @@ def set_reference_date(df,reference_date=None):
 
     if reference_date is None:
         reference_date = df['invoicedate'].max() - pd.DateOffset(months=3)
-    print(f"Reference date set to: {reference_date.date()}")
+    print(f"Reference date set to: {reference_date.date()}") #set to 2011-09-09
     
     df_before=df[df['invoicedate']<=reference_date].copy()
     # Before reference date
@@ -147,14 +147,15 @@ def merge_datasets(df_purchase,df_cancel):
     customer_df['total_cancellation_count']=customer_df['total_cancellation_count'].fillna(0)
     customer_df['total_cancellation_amnt']=customer_df['total_cancellation_amnt'].fillna(0)
     customer_df['total_cancelled_qty']=customer_df['total_cancelled_qty'].fillna(0)
-    customer_df['days_since_last_cancellation']=customer_df['days_since_last_cancellation'].fillna(1000)
+    customer_df['days_since_last_cancellation']=customer_df['days_since_last_cancellation'].fillna(customer_df['days_since_first_purchase'])
     
     return customer_df
 
 def derive_features(customer_df):
     customer_df['cancellation_rate'] = (customer_df['total_cancellation_count'] / (customer_df['count_orders'] + customer_df['total_cancellation_count'])).fillna(0)
     customer_df['order_completion_rate'] = customer_df['count_orders'] / (customer_df['count_orders'] + customer_df['total_cancellation_count'])
-    customer_df['return_purchase_ratio'] = customer_df['total_cancelled_qty'] / customer_df['tot_items'].fillna(0).replace([np.inf], 0)
+    customer_df['return_purchase_ratio'] = np.where(customer_df['tot_items'] > 0,customer_df['total_cancelled_qty'] / customer_df['tot_items'],0).astype(float) # If tot_items = 0, ratio = 0
+    customer_df['return_purchase_ratio'] = customer_df['return_purchase_ratio'].replace([np.inf, -np.inf], 0)
     
     customer_df['per_day_purchase_amnt']=customer_df['total_purchase']/customer_df['days_since_first_purchase'] #could have high correlation
     
@@ -200,7 +201,37 @@ def create_labels(df_after,customer_df):
     
     return customer_df
 
+def check_ratio(customer_df,df_before):
+    # Find customers with ratio > 1
+    extreme_ratios = customer_df[customer_df['return_purchase_ratio'] > 1]
+
+    print(f"Customers with return_purchase_ratio > 1: {len(extreme_ratios)}")
+    print("\nTop 10 extreme cases:")
+    print(extreme_ratios[['customerid', 'tot_items', 'total_cancelled_qty', 'return_purchase_ratio']].sort_values('return_purchase_ratio', ascending=False).head(10))
+
+    # Go back to raw data for one of them
+    if len(extreme_ratios) > 0:
+        sample_id = extreme_ratios.iloc[0]['customerid']
+    print(f"\n{'='*70}")
+    print(f"Investigating Customer {sample_id}")
+    print(f"{'='*70}")
     
+    # Their purchases
+    purchases = df_before[(df_before['customerid'] == sample_id) & (~df_before['is_cancellation'])]
+    print(f"\nPurchases before reference date:")
+    print(f"  Total quantity: {purchases['purchase_qty'].sum()}")
+    print(f"  Transactions: {len(purchases)}")
+    
+    # Their cancellations
+    cancellations = df_before[(df_before['customerid'] == sample_id) & (df_before['is_cancellation'])]
+    print(f"\nCancellations before reference date:")
+    print(f"  Total quantity: {cancellations['cancel_qty'].sum()}")
+    print(f"  Transactions: {len(cancellations)}")
+    
+    # Show transactions
+    print("\nAll transactions:")
+    print(df_before[df_before['customerid'] == sample_id][['invoiceno', 'invoicedate', 'quantity', 'is_cancellation']].sort_values('invoicedate'))
+        
 
 def save_customer_data(customer_df, filepath):
     customer_df.to_csv(filepath, index=False)
@@ -213,6 +244,7 @@ def feature_eng(df):
     customer_df=merge_datasets(df_purchase,df_cancel)
     customer_df=derive_features(customer_df)
     customer_df=create_labels(df_after,customer_df)
+    check_ratio(customer_df,df_before)
     save_customer_data(customer_df,filepath=config.customer_filepath)
     print(f"df_purchase shape: {df_purchase.shape}")
     print(f"purchase features:\n")
