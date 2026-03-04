@@ -3,6 +3,7 @@ data/
 insights/
 stuff/
 visuals/
+cluster_profile.csv
 
 # Python cache
 __pycache__/

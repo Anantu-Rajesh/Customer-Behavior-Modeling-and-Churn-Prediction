@@ -3,7 +3,7 @@ from src import config
 from src.data_preprocessing import load_data as ld
 from sklearn.cluster import KMeans,AgglomerativeClustering,DBSCAN
 from sklearn.metrics import silhouette_score
-from src.models import clustering as cl
+from src.models import util
 
 def kmeans_check(X):
     result_kmeans=[]
@@ -94,9 +94,9 @@ def cluster_check(X_scaled,X_pca):
     result_dbscan_1=dbscan_check(X_scaled)  
     print(f"performance of DBSCAN on X_pca:")
     result_dbscan_2=dbscan_check(X_pca)
-    return result_kmeans_1, result_kmeans_2, result_hierarchy_1, result_hierarchy_2, result_dbscan_1, result_dbscan_2
+    return result_kmeans_1, result_kmeans_2 #, result_hierarchy_1, result_hierarchy_2, result_dbscan_1, result_dbscan_2
 
 if __name__ == "__main__":
     df = ld.load_and_describe_data(config.customer_filepath)
-    X_scaled, X_pca = cl.clustering(df)
+    scaler,X_scaled,pca,X_pca=util.utils(df)
     cluster_check(X_scaled,X_pca)
