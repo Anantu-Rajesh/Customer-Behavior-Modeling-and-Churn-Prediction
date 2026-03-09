@@ -64,7 +64,7 @@ def dbscan_check(X):
             if n_clusters>1:
                 silhouette = silhouette_score(X[mask], labels[mask])
             else:
-                silhouette = -1  # Assign a negative silhouette score if there is only one cluster
+                silhouette = -1
             
             results_dbscan.append({
                 'eps':eps,

@@ -3,6 +3,7 @@ data/
 insights/
 stuff/
 visuals/
+outputs/
 cluster_profile.csv
 
 # Python cache
@@ -20,3 +21,5 @@ venv/
 
 # OS
 Thumbs.db
+
+catboost_info/
