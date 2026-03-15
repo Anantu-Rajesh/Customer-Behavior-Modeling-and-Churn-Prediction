@@ -7,3 +7,5 @@ scikit-learn>=1.0.0
 xgboost
 lightgbm
 catboost
+sentence_transformers
+umap-learn

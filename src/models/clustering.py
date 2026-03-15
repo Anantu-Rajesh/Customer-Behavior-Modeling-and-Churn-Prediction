@@ -14,13 +14,8 @@ def cluster_final(X):
     cluster_model=KMeans(n_clusters=3,init='k-means++',n_init=20,max_iter=300,random_state=42)
     cluster_labels=cluster_model.fit_predict(X)
     return cluster_model,cluster_labels
-    
-def clustering(X_pca):
-    #corr_check(X_scaled,X_pca)
-    cluster_model,cluster_labels=cluster_final(X_pca)
-    return cluster_model,cluster_labels
 
-if __name__ == "__main__":
+'''if __name__ == "__main__":
     df = ld.load_and_describe_data(config.customer_filepath)
     scaler,X_scaled,pca,X_pca=util.utils(df)
-    cluster_model,cluster_labels=clustering(X_pca)
+    cluster_model,cluster_labels=cluster_final(X_pca)'''

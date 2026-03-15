@@ -20,10 +20,9 @@ def lof_final(X):
 def anomaly_detection(X):
     if_model, if_labels,if_scores=if_final(X)
     lof_model,lof_labels,lof_scores=lof_final(X)
-    print(f"HO GYA BBG MWAHHHHAAHHAAHHAHHAHHAHHAHHAHHAHHAHHAHHA")
     return if_model, if_labels,if_scores,lof_model,lof_labels,lof_scores
 
-if __name__ == "__main__":   
+'''if __name__ == "__main__":   
     df = ld.load_and_describe_data(config.customer_filepath)
     scaler,X_scaled,pca,X_pca=util.utils(df)
-    if_model, if_labels,if_scores,lof_model,lof_labels,lof_scores=anomaly_detection(X_pca)
+    if_model, if_labels,if_scores,lof_model,lof_labels,lof_scores=anomaly_detection(X_pca)'''

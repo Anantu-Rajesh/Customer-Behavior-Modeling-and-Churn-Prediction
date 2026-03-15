@@ -80,7 +80,7 @@ def clean_data(df):
     return df
     
     
-if __name__ == "__main__":
+'''if __name__ == "__main__":
     df = ld.load_and_describe_data(config.org_filepath)
-    df = clean_data(df)
+    df = clean_data(df)'''
     

@@ -48,5 +48,5 @@ def load_and_describe_data(filepath):
     dataset_overview(df)
     return df   
 
-if __name__ == "__main__":
-    df=load_and_describe_data(config.org_filepath)
+'''if __name__ == "__main__":
+    df=load_and_describe_data(config.org_filepath)'''

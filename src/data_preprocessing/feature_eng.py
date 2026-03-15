@@ -1,8 +1,12 @@
 import numpy as np
 import pandas as pd
+from sklearn.metrics import silhouette_score
 from . import clean_data as cd
 from . import load_data as ld
 import src.config as config
+from sentence_transformers import SentenceTransformer
+import umap
+from sklearn.cluster import KMeans
 
 '''
 To-Dos:
@@ -201,6 +205,18 @@ def create_labels(df_after,customer_df):
     
     return customer_df
 
+'''def adv_features(customer_df):
+    customer_df['purchase_freq_trend']=np.where(customer_df['avg_days_between_orders'] != 0, customer_df['days_since_last_purchase']/customer_df['avg_days_between_orders'], 0)
+    customer_df['purchase_consistency']=np.where(customer_df['count_orders'] != 0, customer_df['purchase_span']/customer_df['count_orders'], 0)
+    customer_df['value_concentration']=np.where(customer_df['total_purchase'] != 0, customer_df['max_order_val']/customer_df['total_purchase'], 0)
+    customer_df['engagement_momentum'] = (
+        customer_df['days_since_last_purchase'] * 0.5 +  # Recency (50% weight)
+        customer_df['avg_days_between_orders'] * 0.3 +   # Frequency (30% weight)
+        customer_df['activity_gap'] * 0.2                # Activity gap (20% weight)
+    )
+    print(f"range of engagement momentum: {customer_df['engagement_momentum'].min()} to {customer_df['engagement_momentum'].max()}\n")
+    return customer_df'''
+
 def check_ratio(customer_df,df_before):
     # Find customers with ratio > 1
     extreme_ratios = customer_df[customer_df['return_purchase_ratio'] > 1]
@@ -212,25 +228,108 @@ def check_ratio(customer_df,df_before):
     # Go back to raw data for one of them
     if len(extreme_ratios) > 0:
         sample_id = extreme_ratios.iloc[0]['customerid']
-    print(f"\n{'='*70}")
-    print(f"Investigating Customer {sample_id}")
-    print(f"{'='*70}")
+        print(f"Investigating Customer {sample_id}")
     
     # Their purchases
-    purchases = df_before[(df_before['customerid'] == sample_id) & (~df_before['is_cancellation'])]
-    print(f"\nPurchases before reference date:")
-    print(f"  Total quantity: {purchases['purchase_qty'].sum()}")
-    print(f"  Transactions: {len(purchases)}")
+        purchases = df_before[(df_before['customerid'] == sample_id) & (~df_before['is_cancellation'])]
+        print(f"\nPurchases before reference date:")
+        print(f"  Total quantity: {purchases['purchase_qty'].sum()}")
+        print(f"  Transactions: {len(purchases)}")
     
     # Their cancellations
-    cancellations = df_before[(df_before['customerid'] == sample_id) & (df_before['is_cancellation'])]
-    print(f"\nCancellations before reference date:")
-    print(f"  Total quantity: {cancellations['cancel_qty'].sum()}")
-    print(f"  Transactions: {len(cancellations)}")
+        cancellations = df_before[(df_before['customerid'] == sample_id) & (df_before['is_cancellation'])]
+        print(f"\nCancellations before reference date:")
+        print(f"  Total quantity: {cancellations['cancel_qty'].sum()}")
+        print(f"  Transactions: {len(cancellations)}")
     
     # Show transactions
-    print("\nAll transactions:")
-    print(df_before[df_before['customerid'] == sample_id][['invoiceno', 'invoicedate', 'quantity', 'is_cancellation']].sort_values('invoicedate'))
+        print("\nAll transactions:")
+        print(df_before[df_before['customerid'] == sample_id][['invoiceno', 'invoicedate', 'quantity', 'is_cancellation']].sort_values('invoicedate'))
+    else:
+        print("No extreme ratio customers found\n")
+    
+def create_embeddings(df):
+    products=df[['stockcode', 'description']].drop_duplicates()
+    products=products[products['description'].notna()]
+    
+    model=SentenceTransformer('all-MiniLM-L6-v2')
+    
+    descriptions = products['description'].tolist()
+    embeddings = model.encode(descriptions, show_progress_bar=True)
+    
+    reducer = umap.UMAP(
+        n_components=8,
+        n_neighbors=15,
+        min_dist=0.1,
+        random_state=42
+    )
+    embeddings_reduced = reducer.fit_transform(embeddings)
+    
+    return embeddings,embeddings_reduced, products,reducer
+
+'''def cluster_products_exp(embeddings_reduced):
+    results=[]
+    best_k=0
+    best_silhouette=0
+    
+    print("Testing different numbers of clusters...\n")
+    
+    for k in range(3,21):
+        kmeans = KMeans(n_clusters=k, random_state=42, n_init=10)
+        labels = kmeans.fit_predict(embeddings_reduced)
+        
+        inertia = kmeans.inertia_
+        silhouette = silhouette_score(embeddings_reduced, labels)
+        
+        results.append({'k': k, 'inertia': inertia, 'silhouette': silhouette})
+        
+        print(f"cluster count: {k} inertia :{inertia} silhouette: {silhouette}\n")
+        if silhouette > best_silhouette:
+            best_silhouette = silhouette
+            best_k = k
+    
+    results_df = pd.DataFrame(results)
+    print(f"\nbest cluster count: {best_k} Silhouette score: {best_silhouette:.4f}")
+    
+    return best_k, results_df'''
+#this function returned n=20 as optimal but tht created too many clusters with few products, so we manually checked and finalised on 14(12-14 is the good/optimal range based on silhouette scores and cluster sizes)
+
+def cluster_products(embeddings_reduced):
+    kmeans = KMeans(n_clusters=14, random_state=42, n_init=10)
+    product_clusters = kmeans.fit_predict(embeddings_reduced)
+    return product_clusters, kmeans
+
+def create_product_features(transaction_df, products_with_clusters):
+    tx_with_clusters = transaction_df.merge(
+        products_with_clusters[['stockcode', 'product_cluster']],
+        on='stockcode',
+        how='left'
+    )
+    
+    customer_features = tx_with_clusters.groupby('customerid').agg({
+        'product_cluster': [
+            ('product_cluster_diversity', 'nunique'),  
+            ('primary_cluster', lambda x: x.mode()[0] if len(x.mode()) > 0 else -1) 
+        ],
+        'quantity': 'sum'
+    }).reset_index()
+    
+    customer_features.columns = ['customerid', 'product_cluster_diversity', 
+                                   'primary_product_cluster', 'total_quantity']
+    
+ 
+    def calculate_entropy(group):
+        cluster_counts = group['product_cluster'].value_counts(normalize=True)
+        entropy = -np.sum(cluster_counts * np.log(cluster_counts + 1e-10))
+        return entropy
+    
+    entropy_df = tx_with_clusters.groupby('customerid').apply(calculate_entropy)
+    entropy_df = entropy_df.reset_index()
+    entropy_df.columns = ['customerid', 'product_cluster_entropy']
+    
+    customer_features = customer_features.merge(entropy_df, on='customerid')
+    
+    return customer_features   
         
 
 def save_customer_data(customer_df, filepath):
@@ -243,9 +342,28 @@ def feature_eng(df):
     df_cancel=cancellation_features(df_before,reference_date)
     customer_df=merge_datasets(df_purchase,df_cancel)
     customer_df=derive_features(customer_df)
+    #customer_df=adv_features(customer_df)
     customer_df=create_labels(df_after,customer_df)
     check_ratio(customer_df,df_before)
     save_customer_data(customer_df,filepath=config.customer_filepath)
+    embeddings,embeddings_reduced, products,reducer=create_embeddings(df)
+    #best_k, results_df=cluster_products_exp(embeddings_reduced)
+    clusters,kmeans=cluster_products(embeddings_reduced)
+    products['product_cluster']=clusters
+    save_customer_data(products,filepath=config.product_cluster_filepath)
+    print(f"product cluster details saved to {config.product_cluster_filepath}")
+    nlp_features = create_product_features(df_before, products)
+    save_customer_data(nlp_features, filepath=config.nlp_features_filepath)
+    print(f"nlp features saved to {config.nlp_features_filepath}")
+    customer_df_final = customer_df.merge(nlp_features,on='customerid',how='left')
+    customer_df_final = customer_df_final.fillna({
+    'product_cluster_diversity': 0,
+    'primary_product_cluster': -1,
+    'product_cluster_entropy': 0
+    })
+    nlp_only_cols = ['customerid', 'product_cluster_diversity', 'primary_product_cluster', 'total_quantity', 'product_cluster_entropy']
+    save_customer_data(customer_df_final[nlp_only_cols], filepath=config.customer_nlp_filepath)
+    print(f"Customer data with NLP features saved to {config.customer_nlp_filepath}\n")
     print(f"df_purchase shape: {df_purchase.shape}")
     print(f"purchase features:\n")
     ld.dataset_overview(df_purchase)
@@ -256,9 +374,10 @@ def feature_eng(df):
     print(f"\ncustomer_df col list:\n {list(customer_df.columns)}")
     print(f"\ncustomer_df:\n")   
     ld.dataset_overview(customer_df)
+    return reducer,kmeans
 
-if __name__ == "__main__":
+'''if __name__ == "__main__":
     df = ld.load_and_describe_data(config.org_filepath)
     df = cd.clean_data(df)
-    df = feature_eng(df)
+    df = feature_eng(df)'''
     

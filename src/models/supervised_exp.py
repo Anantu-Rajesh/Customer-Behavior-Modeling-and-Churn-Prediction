@@ -369,7 +369,7 @@ def save_results(result,target,unsupervised_label=False):
 
 if __name__ == "__main__":
     df = ld.load_and_describe_data(config.customer_filepath)
-    df_labels=ld.load_and_describe_data(config.customer_filepath_with_unsupervised_labels)
+    df_labels=ld.load_and_describe_data(config.customer_nlp_filepath_with_labels)
     df_high_val=df[df['churn']==0].copy()
     df_high_val_labels=df_labels[df_labels['churn']==0].copy()
     

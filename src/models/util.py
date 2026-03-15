@@ -1,6 +1,4 @@
 
-import joblib
-from narwhals import col
 import numpy as np
 import pandas as pd
 from src import config
@@ -196,13 +194,7 @@ def label_assign(cluster_labels, if_labels,if_scores, lof_labels, lof_scores, cu
     print(f"anomaly detection labels assigned to customer_df\n")
     
     return customer_df
-
-def save_unsupervised(scaler,pca,cluster_model, if_model, lof_model):
-    joblib.dump(scaler, 'stuff/scaler.pkl')
-    joblib.dump(pca, 'stuff/pca.pkl')
-    joblib.dump(cluster_model, 'stuff/cluster_model.pkl')
-    joblib.dump(if_model, 'stuff/isolation_forest.pkl')
-    joblib.dump(lof_model, 'stuff/lof_novelty.pkl')    
+ 
     
 def utils(df):
     X=cluster_data(df)
@@ -211,12 +203,21 @@ def utils(df):
     pca,X_pca=pca_transform(X_scaled)
     return scaler,X_scaled,pca,X_pca  
 
-if __name__ == "__main__":
+'''if __name__ == "__main__":
     df = ld.load_and_describe_data(config.customer_filepath)
     scaler,X_scaled,pca,X_pca=utils(df)
     cluster_model,cluster_labels=cl.clustering(X_pca)
+    nlp_features = ld.load_and_describe_data(config.customer_nlp_filepath)
     if_model, if_labels,if_scores,lof_model,lof_labels,lof_scores=ad.anomaly_detection(X_pca)
     customer_df=label_assign(cluster_labels, if_labels,if_scores, lof_labels, lof_scores, df)
-    save_unsupervised(scaler, pca, cluster_model, if_model, lof_model)
     customer_df.to_csv(config.customer_filepath_with_unsupervised_labels, index=False)
     print(f"Customer data with cluster and anomaly labels saved to {config.customer_filepath_with_unsupervised_labels}\n")  
+    customer_df_final = customer_df.merge(nlp_features,on='customerid',how='left')
+    customer_df_final = customer_df_final.fillna({
+    'product_cluster_diversity': 0,
+    'primary_product_cluster': -1,
+    'product_cluster_entropy': 0
+    })
+    customer_df_final.to_csv(config.customer_nlp_filepath_with_labels, index=False)
+    print(f"Customer data with cluster, anomaly labels and NLP features saved to {config.customer_nlp_filepath_with_labels}\n")'''
+
