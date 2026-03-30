@@ -1,4 +1,3 @@
-
 import numpy as np
 import pandas as pd
 from src import config
@@ -53,7 +52,7 @@ def churn_data(df, model_type):
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-    return X_train, X_test, y_train, y_test
+    return X,X_train, X_test, y_train, y_test,scaler
 
 def high_value_data(df, model_type):
     X=df.copy()
@@ -94,7 +93,7 @@ def high_value_data(df, model_type):
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-    return X_train, X_test, y_train, y_test
+    return X,X_train, X_test, y_train, y_test
 
 def high_risk_data(df, model_type):
     X=df.copy()
@@ -135,7 +134,7 @@ def high_risk_data(df, model_type):
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
 
-    return X_train, X_test, y_train, y_test
+    return X,X_train, X_test, y_train, y_test
 
 def skew_handle(X):
     skew_list=['total_purchase','count_orders','tot_items','num_unique_products','avg_order_val','avg_items_per_order','max_order_val','min_order_val','std_order_val','total_cancellation_count','total_cancellation_amnt','total_cancelled_qty','return_purchase_ratio','per_day_purchase_amnt']
@@ -175,11 +174,11 @@ def label_assign(cluster_labels, if_labels,if_scores, lof_labels, lof_scores, cu
     'days_since_last_purchase': ['mean', 'median'],
     'cancellation_rate': ['mean', 'median'],
     'activity_gap': 'mean',
-    'churn': 'mean'  # Churn rate per cluster
+    'churn': 'mean'  
     }).round(2)
 
-    profile.to_csv("cluster_profile.csv")
-    print(f"Cluster profile saved to cluster_profile.csv\n")
+    '''profile.to_csv("cluster_profile.csv")
+    print(f"Cluster profile saved to cluster_profile.csv\n")'''
     
     #handling for IF labels
     if_labels=np.where(if_labels==-1,1,0)
@@ -195,7 +194,42 @@ def label_assign(cluster_labels, if_labels,if_scores, lof_labels, lof_scores, cu
     
     return customer_df
  
+def create_churn_tiers(probabilities):
+    tiers = []
+    for prob in probabilities:
+        if prob < 0.40:
+            tiers.append('Low Risk')
+        elif prob < 0.70:
+            tiers.append('Medium Risk')
+        else:
+            tiers.append('High Risk')
+    return np.array(tiers)
+
+
+def create_high_value_tiers(probabilities):
+    tiers = []
+    for prob in probabilities:
+        if prob < 0.40:
+            tiers.append('Standard')
+        elif prob < 0.70:
+            tiers.append('Growing Potential')
+        else:
+            tiers.append('VIP')
+    return np.array(tiers)
+
+
+def create_high_risk_tiers(probabilities):
+    tiers = []
+    for prob in probabilities:
+        if prob < 0.30:  # Different threshold!
+            tiers.append('Normal')
+        elif prob < 0.60:  # Different threshold!
+            tiers.append('Watch List')
+        else:
+            tiers.append('Urgent Attention')
+    return np.array(tiers)
     
+        
 def utils(df):
     X=cluster_data(df)
     X=skew_handle(X)

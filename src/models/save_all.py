@@ -10,14 +10,18 @@ def save_nlp(umap_reducer, product_kmeans):
     print(f"All NLP models saved to stuff/nlp/")
 
 def save_unsupervised(scaler,pca,cluster_model, if_model, lof_model):
-    joblib.dump(scaler, 'stuff/scaler.pkl')
+    joblib.dump(scaler, 'stuff/unsupervised/scaler.pkl')
     joblib.dump(pca, 'stuff/unsupervised/pca.pkl')
     joblib.dump(cluster_model, 'stuff/unsupervised/cluster_model.pkl')
     joblib.dump(if_model, 'stuff/unsupervised/isolation_forest.pkl')
     joblib.dump(lof_model, 'stuff/unsupervised/lof_novelty.pkl')   
     print("All unsupervised models saved to stuff/unsupervised/")
     
-def save_supervised(churn_model, high_risk_model, high_value_model,churn_results, high_risk_results, high_value_results):
+def save_supervised(supervised_scaler,churn_model, high_risk_model, high_value_model,churn_results, high_risk_results, high_value_results):
+    #for scaler
+    joblib.dump(supervised_scaler, 'stuff/supervised/scaler.pkl')
+    print("Saved supervised scaler to stuff/supervised/scaler.pkl\n")
+    
     #for churn model  
     joblib.dump(churn_model, 'stuff/supervised/churn_model.pkl')
     print("Saved to stuff/supervised/churn_model.pkl\n")

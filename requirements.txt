@@ -9,3 +9,6 @@ lightgbm
 catboost
 sentence_transformers
 umap-learn
+plotly>=5.0.0
+streamlit>=1.36.0
+joblib

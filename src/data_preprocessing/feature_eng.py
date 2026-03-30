@@ -364,7 +364,8 @@ def feature_eng(df):
     nlp_only_cols = ['customerid', 'product_cluster_diversity', 'primary_product_cluster', 'total_quantity', 'product_cluster_entropy']
     save_customer_data(customer_df_final[nlp_only_cols], filepath=config.customer_nlp_filepath)
     print(f"Customer data with NLP features saved to {config.customer_nlp_filepath}\n")
-    print(f"df_purchase shape: {df_purchase.shape}")
+    
+    '''print(f"df_purchase shape: {df_purchase.shape}")
     print(f"purchase features:\n")
     ld.dataset_overview(df_purchase)
     print(f"df_cancel shape: {df_cancel.shape}")
@@ -373,7 +374,8 @@ def feature_eng(df):
     print(f"\ncustomer_df shape: {customer_df.shape}")
     print(f"\ncustomer_df col list:\n {list(customer_df.columns)}")
     print(f"\ncustomer_df:\n")   
-    ld.dataset_overview(customer_df)
+    ld.dataset_overview(customer_df)'''
+    
     return reducer,kmeans
 
 '''if __name__ == "__main__":

@@ -15,7 +15,6 @@ def churn(X_train, y_train, X_test, y_test):
     y_pred=model.predict(X_test)
     acc=accuracy_score(y_test,y_pred)   
     f1=f1_score(y_test,y_pred)
-    
     if hasattr(model, "predict_proba"):
         y_prob = model.predict_proba(X_test)[:, 1]
     else:
@@ -29,5 +28,5 @@ def churn(X_train, y_train, X_test, y_test):
 
 '''if __name__ == "__main__":
     df_labels=ld.load_and_describe_data(config.customer_nlp_filepath_with_labels)
-    X_train_linear, X_test_linear, y_train_linear, y_test_linear=util.churn_data(df_labels,model_type='linear')
+    X_train_linear, X_test_linear, y_train_linear, y_test_linear,scaler=util.churn_data(df_labels,model_type='linear')
     churn_model, churn_results=churn(X_train_linear, y_train_linear, X_test_linear, y_test_linear)'''

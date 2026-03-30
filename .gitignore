@@ -1,10 +1,13 @@
-# Data & insights(already mentioned in .ipyb files)
+# files n folders not required 
+.streamlit/
 data/
 insights/
 stuff/
 visuals/
 outputs/
 cluster_profile.csv
+visuals.txt
+INTERVIEW_PREPARATION.md
 
 # Python cache
 __pycache__/

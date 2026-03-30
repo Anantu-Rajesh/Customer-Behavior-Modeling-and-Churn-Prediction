@@ -49,7 +49,7 @@ def handle_quantity(df):
     df["cancel_qty"] = (-df["quantity"].clip(upper=0))
     df['cancel_amnt']=df['cancel_qty']*df['unitprice']
     df['purchase_amnt']=df['purchase_qty']*df['unitprice']
-    #Final check
+
     assert (
         (df.loc[df["is_cancellation"], "purchase_qty"] == 0).all()
     ), "C invoices contain purchase_qty"

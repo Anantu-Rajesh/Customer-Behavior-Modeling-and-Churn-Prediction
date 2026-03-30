@@ -1,0 +1,20 @@
+Issues / ToDos:
+1. Frontend changes and improvements needed:
+    - maybe add a new page or two
+    - dedicate a page like "downloads" or sumn where all datasets can be downloaded from, i thinks thts better thn putting sum download file option at the end of each page
+    - seems like some plots or charts need to be rechecked as they not showing up well
+    - in overview page, chart 3 has readability issues
+    - some redundancy with data shown, so gotta fix tht 
+2. make all datasets/ plots downloadable:
+    - predictions df (already done bbg)
+    - customer lvl df (not done bbg)
+    - top or all anomalies (some logical error needs to be found and fixed bbg)
+    - top vips (already done bbg)
+    - cluster df (not done bbg)
+    - plots are already downloadable
+3. Check inference pipeline working on new dataset 
+4. data(plots n tables) loading very slow onto frontend(looked up cache n stuff, either it aint working or me being a dumbfk tht i am, didnt implement it properly hehe) 
+5. Documentation stuff, gotta add project folder structure in README file and refine other stuff
+6. Add comments in code so peeps can understand... but well, no one is as stupid as me so ig it aint tht much of a priority rn
+
+PS: might(or might not) take a longggggggg time b4 i address these ig :)

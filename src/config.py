@@ -5,6 +5,10 @@ nlp_features_filepath='./data/processed/nlp_features.csv'
 product_cluster_filepath='./data/processed/product_clusters.csv'
 customer_nlp_filepath='./data/processed/customer_nlp_features.csv'
 customer_nlp_filepath_with_labels='./data/processed/customer_nlp_features_with_labels.csv'
+churn_model_path='./stuff/supervised/churn_model.pkl'
+high_value_model_path='./stuff/supervised/high_value_model.pkl'
+high_risk_model_path='./stuff/supervised/high_risk_model.pkl'
+customer_predictions_filepath='./data/customer_predictions.csv'
 
 CHURN_PARAMS = {
     'naive_bayes': {
