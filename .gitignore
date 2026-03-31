@@ -1,11 +1,7 @@
 # files n folders not required 
 .streamlit/
-data/
+data/raw/
 insights/
-stuff/
-visuals/
-outputs/
-cluster_profile.csv
 visuals.txt
 INTERVIEW_PREPARATION.md
 

@@ -1,0 +1,7 @@
+model_name,target,unsupervised_features,best_cv_f1,f1,roc_auc,accuracy,best_params
+Logistic Regression,high_risk,False,0.17580824972129322,0.07407407407407407,0.81,0.962852897473997,"{'C': 10, 'l1_ratio': 0}"
+Naive Bayes,high_risk,False,0.19290897627475317,0.22388059701492538,0.8255555555555556,0.8454680534918276,{'var_smoothing': 1e-10}
+SVM,high_risk,False,0.18957748590515047,0.2047244094488189,0.7253703703703704,0.849925705794948,"{'C': 5, 'gamma': 0.01, 'kernel': 'rbf'}"
+Random Forest,high_risk,False,0.2808762916521537,0.2857142857142857,0.8057407407407408,0.962852897473997,"{'max_depth': 10, 'max_features': 'sqrt', 'min_samples_leaf': 5, 'min_samples_split': 2, 'n_estimators': 400}"
+Gradient Boosting,high_risk,False,0.2606022780464971,0.0,0.7558641975308642,0.9539375928677564,"{'learning_rate': 0.1, 'max_depth': 4, 'min_samples_leaf': 1, 'min_samples_split': 5, 'n_estimators': 100, 'subsample': 0.7}"
+XGBoost,high_risk,False,0.23066666666666666,0.3125,0.7906172839506174,0.9673105497771174,"{'learning_rate': 0.01, 'max_depth': 3, 'n_estimators': 200, 'scale_pos_weight': 3}"

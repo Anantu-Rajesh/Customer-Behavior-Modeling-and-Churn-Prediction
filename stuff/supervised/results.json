@@ -1,0 +1,23 @@
+{
+  "churn": {
+    "model_file": "churn_model.pkl",
+    "model_type": "Naive Bayes",
+    "threshold": 0.5,
+    "f1_score": 0.6870451237263464,
+    "roc_auc": 0.7350057670126875
+  },
+  "high_value": {
+    "model_file": "high_value_model.pkl",
+    "model_type": "XGBoost",
+    "threshold": 0.5,
+    "f1_score": 0.6404494382022472,
+    "roc_auc": 0.8581679111272993
+  },
+  "high_risk": {
+    "model_file": "high_risk_model.pkl",
+    "model_type": "XGBoost",
+    "threshold": 0.5,
+    "f1_score": 0.3125,
+    "roc_auc": 0.7906172839506174
+  }
+}

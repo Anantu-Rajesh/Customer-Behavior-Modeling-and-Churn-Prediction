@@ -22,7 +22,7 @@ Built a production-style customer analytics system on ~500k retail transactions 
 - Streamlit dashboard for predictions, metrics, and customer segment analysis
 
 ## Dataset Description
-- Source type: Online retail transactional data
+- Source: Online retail transactional data (https://archive.ics.uci.edu/dataset/352/online+retail)
 - Scale: 541,909 transactions, 4,372 unique customers 
 - Typical fields: InvoiceNo, StockCode, Description, Quantity, InvoiceDate,UnitPrice, CustomerID, Country
 - Nature of data: Event-level purchase and cancellation logs requiring customer-level aggregation
@@ -137,24 +137,112 @@ This project prioritizes F1-score and ROC-AUC because class imbalance is signifi
 - High-risk cancellation prediction remains difficult due to extreme imbalance; lower F1 is expected and still useful for watchlist-style triage when paired with probability tiers.
 
 ## Screenshots
-- ![first_page](image.png) Dashboard overview (more plots and table also present below)
-- ![churn_page](image-1.png) Churn analysis page (more plots and table also present below)
-- ![highval_page](image-2.png) High-value customer page (more plots and table also present below)
-- ![segments_page](image-3.png) Segmentation page (more plots and table also present below)
-- ![moreinsight_page](image-4.png) Advanced analytics page (TABLE NEEDS TO BE FIXED, more plots and table also present below)
+![first_page](./visuals/overview_page.png) Dashboard overview (more plots and table also present below)
+![churn_page](./visuals/churn_page.png) Churn analysis page (more plots and table also present below)
+![highval_page](./visuals/highval_page.png) High-value customer page (more plots and table also present below)
+![segments_page](./visuals/cluster_page.png) Segmentation page (more plots and table also present below)
+![moreinsight_page](./visuals/analytics_page.png) Advanced analytics page (TABLE NEEDS TO BE FIXED, more plots and table also present below)
 
-## Repository Structure
-- frontend: Streamlit application and pages
-- src/data_preprocessing: data loading, cleaning, feature engineering
-- src/models: unsupervised and supervised modeling
-- src/pipelines: training and inference orchestration
-- data: raw, processed, and prediction outputs
-- stuff: persisted models and metrics artifacts
-- insights, outputs, notebooks: experimentation and analysis artifacts
+## Project Folder Structure
+```text
+customer behavioural analysis/
+|- README.md
+|- requirements.txt
+|- TECHNICAL_DOCUMENTATION.md
+|- ToDos.txt
+|
+|- data/
+|  |- customer_predictions.csv
+|  |- processed/
+|  |  |- customer_features_with_labels.csv
+|  |  |- customer_features.csv
+|  |  |- customer_nlp_features_with_labels.csv
+|  |  |- customer_nlp_features.csv
+|  |  |- nlp_features.csv
+|  |  |- product_clusters.csv
+|  |- raw/
+|
+|- frontend/
+|  |- app.py
+|  |- pages/
+|  |  |- 1_Overview.py
+|  |  |- 2_Churn_Analysis.py
+|  |  |- 3_High_Value.py
+|  |  |- 4_Segments.py
+|  |  |- 5_Advanced.py
+|
+|- notebooks/
+|  |- 01_eda.ipynb
+|  |- 02_feature_val.ipynb
+|
+|- outputs/
+|  |- churn_results_baseline.csv
+|  |- churn_results_with_unsup.csv
+|  |- churn_tuning_results_baseline.csv
+|  |- churn_tuning_results_with_unsup.csv
+|  |- high_risk_results_baseline.csv
+|  |- high_risk_results_with_unsup.csv
+|  |- high_risk_tuning_results_baseline.csv
+|  |- high_risk_tuning_results_with_unsup.csv
+|  |- high_value_results_baseline.csv
+|  |- high_value_results_with_unsup.csv
+|  |- high_value_tuning_results_baseline.csv
+|  |- high_value_tuning_results_with_unsup.csv
+|
+|- src/
+|  |- __init__.py
+|  |- config.py
+|  |- data_preprocessing/
+|  |  |- __init__.py
+|  |  |- clean_data.py
+|  |  |- feature_eng.py
+|  |  |- load_data.py
+|  |- models/
+|  |  |- __init__.py
+|  |  |- anomaly_detection_exp.py
+|  |  |- anomaly_detection.py
+|  |  |- churn.py
+|  |  |- clustering_exp.py
+|  |  |- clustering.py
+|  |  |- f1_tuning_exp.py
+|  |  |- high_risk_customer.py
+|  |  |- high_val_customer.py
+|  |  |- save_all.py
+|  |  |- supervised_exp_tuning.py
+|  |  |- supervised_exp.py
+|  |  |- util.py
+|  |- pipelines/
+|  |  |- __init__.py
+|  |  |- inference_pipeline.py
+|  |  |- train_pipeline.py
+|  |- visualization/
+|  |  |- anomaly_plots.py
+|  |  |- behav_plots.py
+|  |  |- cluster_plot.py
+|  |  |- tier_plots.py
+|  |  |- visual.py
+|
+|- stuff/
+|  |- nlp/
+|  |  |- product_kmeans.pkl
+|  |  |- umap_reducer.pkl
+|  |- supervised/
+|  |  |- scaler.pkl
+|  |  |- churn_model.pkl
+|  |  |- high_risk_model.pkl
+|  |  |- high_value_model.pkl
+|  |  |- results.json
+|  |- unsupervised/
+|  |  |- scaler.pkl
+|  |  |- pca.pkl
+|  |  |- cluster_model.pkl
+|  |  |- isolation_forest.pkl
+|  |  |- lof_novelty.pkl
+|
+|- visuals/
+```
 
 ## Model Files 
-The trained models are saved in the stuff/ directory:
-
 Supervised models (stuff/supervised/):
 - churn_model.pkl: Naive Bayes classifier for churn prediction
 - high_value_model.pkl: XGBoost classifier for high-value customers
@@ -173,7 +261,8 @@ NLP models (stuff/nlp/):
 - umap_reducer.pkl: UMAP dimensionality reduction (384→8)
 - product_kmeans.pkl: Product cluster model (k=14)
 
-Run the training pipeline using cmd: python -m src.pipeline.train_pipeline to generate and save these model files.
+Note: Pre-trained models are included in the repository (stuff/ directory, ~9MB total). 
+No additional downloads or setup required.
 
 ## How to Run Locally
 1. Clone the repository and move into the project folder.
@@ -211,4 +300,3 @@ streamlit run frontend/app.py
 ## Notes
 - The pipeline is designed around customer-level prediction from event-level transactions.
 - Temporal split and post-reference label design are intentionally enforced to reduce data leakage risk.
-- Metrics should be interpreted per target prevalence, especially for high-risk prediction.
