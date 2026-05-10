@@ -65,6 +65,16 @@ def set_reference_date(df,reference_date=None):
     
     print("Total unique customers in cleaned data:", df['customerid'].nunique())
 
+    # Ensure invoicedate is datetimelike
+    df['invoicedate'] = pd.to_datetime(df['invoicedate'], errors='coerce')
+    invalid_dates = int(df['invoicedate'].isna().sum())
+    if invalid_dates > 0:
+        print(f"Warning: {invalid_dates} rows have invalid InvoiceDate and will be dropped before feature engineering.")
+        df = df.dropna(subset=['invoicedate'])
+
+    if df.empty:
+        raise ValueError("No valid invoice dates available for feature engineering.")
+
     if reference_date is None:
         reference_date = df['invoicedate'].max() - pd.DateOffset(months=3)
     print(f"Reference date set to: {reference_date.date()}") #set to 2011-09-09
@@ -91,6 +101,10 @@ def purchase_features(df_before,reference_date):
     ).reset_index()
     
     #customer wise purchase features
+    # Ensure invoice dates on transactions are datetimelike
+    df_temp1['invoicedate'] = pd.to_datetime(df_temp1['invoicedate'], errors='coerce')
+    df_temp1 = df_temp1.dropna(subset=['invoicedate'])
+
     df_purchase=df_temp1.groupby('customerid').agg(
         total_purchase=('purchase_amnt','sum'),
         count_orders=('invoiceno','nunique'),
@@ -108,12 +122,20 @@ def purchase_features(df_before,reference_date):
     
     df_purchase['avg_order_val'] = df_purchase['total_purchase'] / df_purchase['count_orders']
     df_purchase['avg_items_per_order'] = df_purchase['tot_items'] / df_purchase['count_orders']
-    df_purchase['product_diversity_ratio'] = df_purchase['num_unique_products'] / df_purchase['tot_items']
+    df_purchase['product_diversity_ratio'] = np.where(
+        df_purchase['tot_items'] > 0,
+        df_purchase['num_unique_products'] / df_purchase['tot_items'],
+        0
+    )
     
     #merging order lvl feature with purchase lvl ones
     df_purchase=df_purchase.merge(order_features,on='customerid',how='left')
     
     #remaining recency features ko yaha pe kr rhe handle
+    # Ensure derived date columns are datetimelike
+    df_purchase['first_purchase_date'] = pd.to_datetime(df_purchase['first_purchase_date'], errors='coerce')
+    df_purchase['last_purchase_date'] = pd.to_datetime(df_purchase['last_purchase_date'], errors='coerce')
+
     df_purchase['days_since_last_purchase'] = (reference_date - df_purchase['last_purchase_date']).dt.days
     df_purchase['days_since_first_purchase'] = (reference_date - df_purchase['first_purchase_date']).dt.days
     df_purchase['purchase_span'] = (df_purchase['last_purchase_date'] - df_purchase['first_purchase_date']).dt.days
@@ -133,6 +155,10 @@ def cancellation_features(df_before,reference_date):
     df_temp2=df_before[df_before['is_cancellation']].copy()
     print("Customers with cancellations b4 reference date:", df_temp2['customerid'].nunique())
     
+    # Ensure invoicedate is datetimelike for cancellation rows
+    df_temp2['invoicedate'] = pd.to_datetime(df_temp2['invoicedate'], errors='coerce')
+    df_temp2 = df_temp2.dropna(subset=['invoicedate'])
+
     df_cancel=df_temp2.groupby('customerid').agg(
         total_cancellation_count=('invoiceno','nunique'),
         total_cancellation_amnt=('cancel_amnt','sum'),
@@ -140,6 +166,7 @@ def cancellation_features(df_before,reference_date):
         last_cancel_date=('invoicedate','max')
         ).reset_index()
     
+    df_cancel['last_cancel_date'] = pd.to_datetime(df_cancel['last_cancel_date'], errors='coerce')
     df_cancel['days_since_last_cancellation']=(reference_date-df_cancel['last_cancel_date']).dt.days
     
     
@@ -157,11 +184,19 @@ def merge_datasets(df_purchase,df_cancel):
 
 def derive_features(customer_df):
     customer_df['cancellation_rate'] = (customer_df['total_cancellation_count'] / (customer_df['count_orders'] + customer_df['total_cancellation_count'])).fillna(0)
-    customer_df['order_completion_rate'] = customer_df['count_orders'] / (customer_df['count_orders'] + customer_df['total_cancellation_count'])
+    customer_df['order_completion_rate'] = np.where(
+        (customer_df['count_orders'] + customer_df['total_cancellation_count']) > 0,
+        customer_df['count_orders'] / (customer_df['count_orders'] + customer_df['total_cancellation_count']),
+        0
+    )
     customer_df['return_purchase_ratio'] = np.where(customer_df['tot_items'] > 0,customer_df['total_cancelled_qty'] / customer_df['tot_items'],0).astype(float) # If tot_items = 0, ratio = 0
     customer_df['return_purchase_ratio'] = customer_df['return_purchase_ratio'].replace([np.inf, -np.inf], 0)
     
-    customer_df['per_day_purchase_amnt']=customer_df['total_purchase']/customer_df['days_since_first_purchase'] #could have high correlation
+    customer_df['per_day_purchase_amnt'] = np.where(
+        customer_df['days_since_first_purchase'] > 0,
+        customer_df['total_purchase'] / customer_df['days_since_first_purchase'],
+        0
+    )
     
     customer_df['activity_gap']=0
     multi_order=customer_df['count_orders']>1

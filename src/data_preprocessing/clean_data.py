@@ -61,10 +61,21 @@ def handle_quantity(df):
     return df
 
 def handle_invoice_date(df):
-    min_date=df['invoicedate'].min()
-    max_date=df['invoicedate'].max()
+    # Ensure invoicedate is a datetimelike dtype before using .dt
+    df['invoicedate'] = pd.to_datetime(df['invoicedate'], errors='coerce')
+    na_dates = df['invoicedate'].isna().sum()
+    if na_dates > 0:
+        print(f"Warning: {na_dates} rows have invalid or missing InvoiceDate and will be dropped.")
+        df = df.dropna(subset=['invoicedate'])
+
+    if df.empty:
+        print("No valid invoice dates available after parsing.")
+        return df
+
+    min_date = df['invoicedate'].min()
+    max_date = df['invoicedate'].max()
     print(f"Date ranges from {min_date} to {max_date}")
-    df['date_months']=df['invoicedate'].dt.to_period('M')
+    df['date_months'] = df['invoicedate'].dt.to_period('M')
     return df
 
 

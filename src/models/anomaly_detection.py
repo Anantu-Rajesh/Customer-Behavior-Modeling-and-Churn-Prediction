@@ -10,16 +10,17 @@ def if_final(X):
     if_scores=if_model.decision_function(X)
     return if_model, if_labels,if_scores
 
-def lof_final(X):
+'''def lof_final(X):
     lof_model=LocalOutlierFactor(contamination=0.05, n_neighbors=20,novelty=True)
     lof_model.fit(X)
     lof_labels=lof_model.predict(X)
     lof_scores=lof_model.negative_outlier_factor_
-    return lof_model,lof_labels,lof_scores
+    return lof_model,lof_labels,lof_scores'''
 
 def anomaly_detection(X):
     if_model, if_labels,if_scores=if_final(X)
-    lof_model,lof_labels,lof_scores=lof_final(X)
+    #lof_model,lof_labels,lof_scores=lof_final(X)
+    lof_model, lof_labels, lof_scores = None, None, None
     return if_model, if_labels,if_scores,lof_model,lof_labels,lof_scores
 
 '''if __name__ == "__main__":   

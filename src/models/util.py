@@ -36,7 +36,7 @@ def churn_data(df, model_type):
             print(f"  Scaled {len(cols_to_scale)} features")
     
     elif model_type == 'tree':
-        pass
+        scaler=None
     
     else:
         raise ValueError(f"model_type must be 'tree' or 'linear', got {model_type}")
@@ -51,7 +51,7 @@ def churn_data(df, model_type):
     print(f"\nFirst few rows:\n{X.head()}\n")
     
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42, stratify=y)
-
+    # remove X and scaler if needed for model finetuning and everything, but these needed for pipeline working
     return X,X_train, X_test, y_train, y_test,scaler
 
 def high_value_data(df, model_type):
@@ -105,10 +105,8 @@ def high_risk_data(df, model_type):
     y=X.pop('high_future_cancellation')
     
     if model_type == 'linear':
-        # Apply log transformation to skewed features
         X = skew_handle(X)
         
-        # Scale numeric features (but NOT the categorical label columns)
         numeric_cols = X.select_dtypes(include=[np.number]).columns.tolist()
         cols_to_scale = [col for col in numeric_cols if col not in label_cols]
         
@@ -143,6 +141,55 @@ def skew_handle(X):
             X[col]=np.log1p(X[col])
     return X
 
+
+def prepare_for_inference(df, models, model_key=None, drop_cols=None, label_cols=None, scaler_key='supervised_scaler', model_type=None):
+    X = df.copy()
+
+    if drop_cols is None:
+        drop_cols = ['customerid','churn','high_value_customer','high_future_cancellation',
+                     'first_purchase_date', 'last_purchase_date','last_cancel_date','cluster_name']
+    if label_cols is None:
+        label_cols = ['cluster_label','if_label','lof_label']
+
+    for col in drop_cols:
+        if col in X.columns:
+            X.drop(columns=col, inplace=True)
+
+    for col in label_cols:
+        if col in X.columns:
+            X = pd.get_dummies(X, columns=[col], drop_first=True)
+
+    X = skew_handle(X)
+
+    if model_type == 'linear' and scaler_key and scaler_key in models:
+        scaler = models[scaler_key]
+        scaler_cols = list(getattr(scaler, 'feature_names_in_', []))
+        if scaler_cols:
+            for col in scaler_cols:
+                if col not in X.columns:
+                    X[col] = 0
+            cols_to_scale = [col for col in scaler_cols if col not in label_cols]
+            X[cols_to_scale] = scaler.transform(X[cols_to_scale])
+
+    if model_key and model_key in models:
+        model = models[model_key]
+
+        if isinstance(model, dict):
+            ref_model = model.get('nb') or model.get('rf') or model.get('xgb')
+            feature_names = list(getattr(ref_model, 'feature_names_in_', X.columns))
+        elif hasattr(model, 'feature_names_in_'):
+            feature_names = list(model.feature_names_in_)
+        else:
+            feature_names = None
+
+        if feature_names:
+            for col in feature_names:
+                if col not in X.columns:
+                    X[col] = 0
+            X = X[feature_names]
+
+    return X
+
 def scale_data(X):
     scaler=StandardScaler()
     X_scaled=scaler.fit_transform(X)
@@ -166,29 +213,31 @@ def label_assign(cluster_labels, if_labels,if_scores, lof_labels, lof_scores, cu
     print(f"Number of samples in each cluster: {customer_df['cluster_label'].value_counts()}\n")
     print(f"Spend distribution by cluster:\n{customer_df.groupby('cluster_label')['total_purchase'].describe()}\n")
     
-    profile = customer_df.groupby('cluster_label').agg({
-    'customerid': 'count',
-    'total_purchase': ['mean', 'median'],
-    'count_orders': ['mean', 'median'],
-    'avg_order_val': ['mean', 'median'],
-    'days_since_last_purchase': ['mean', 'median'],
-    'cancellation_rate': ['mean', 'median'],
-    'activity_gap': 'mean',
-    'churn': 'mean'  
-    }).round(2)
+    agg_dict = {
+        'customerid': 'count',
+        'total_purchase': ['mean', 'median'],
+        'count_orders': ['mean', 'median'],
+        'avg_order_val': ['mean', 'median'],
+        'days_since_last_purchase': ['mean', 'median'],
+        'cancellation_rate': ['mean', 'median'],
+        'activity_gap': 'mean'
+    }
+
+    if 'churn' in customer_df.columns:
+        agg_dict['churn'] = 'mean'
+
+    profile = customer_df.groupby('cluster_label').agg(agg_dict).round(2)
 
     '''profile.to_csv("cluster_profile.csv")
     print(f"Cluster profile saved to cluster_profile.csv\n")'''
     
-    #handling for IF labels
     if_labels=np.where(if_labels==-1,1,0)
     customer_df['if_label']=if_labels
     customer_df['if_score']=if_scores
-    
-    #handling for LOF labels
-    lof_labels=np.where(lof_labels==-1,1,0)
+
+    '''lof_labels=np.where(lof_labels==-1,1,0)
     customer_df['lof_label']=lof_labels     
-    customer_df['lof_score']=lof_scores
+    customer_df['lof_score']=lof_scores'''
     
     print(f"anomaly detection labels assigned to customer_df\n")
     
@@ -221,9 +270,9 @@ def create_high_value_tiers(probabilities):
 def create_high_risk_tiers(probabilities):
     tiers = []
     for prob in probabilities:
-        if prob < 0.30:  # Different threshold!
+        if prob < 0.30:  
             tiers.append('Normal')
-        elif prob < 0.60:  # Different threshold!
+        elif prob < 0.60: 
             tiers.append('Watch List')
         else:
             tiers.append('Urgent Attention')

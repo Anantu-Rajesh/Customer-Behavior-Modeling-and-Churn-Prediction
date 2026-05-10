@@ -20,6 +20,37 @@ HIGH_RISK_COLORS = {
     'Urgent Attention': '#e74c3c'   
 }
 
+PLOT_BG = '#ffffff'
+PAPER_BG = '#fbfdff'
+GRID = '#e8eef5'
+TEXT = '#1f2937'
+
+
+def _apply_theme(fig, title, height=450, showlegend=False):
+    fig.update_layout(
+        title=dict(text=f'<b>{title}</b>', x=0.02, xanchor='left'),
+        template='plotly_white',
+        height=height,
+        showlegend=showlegend,
+        plot_bgcolor=PLOT_BG,
+        paper_bgcolor=PAPER_BG,
+        margin=dict(t=70, b=40, l=15, r=15),
+        font=dict(family='Trebuchet MS, sans-serif', color=TEXT, size=13),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='left',
+            x=0.0,
+            bgcolor='rgba(255,255,255,0.85)',
+            bordercolor='#e5e7eb',
+            borderwidth=1,
+        ),
+    )
+    fig.update_xaxes(showgrid=False, linecolor=GRID)
+    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
+    return fig
+
 def get_active_customers(df):
     return df[df['high_value_tier'] != 'N/A (Churned)'].copy()
 
@@ -43,18 +74,13 @@ def plot_spend_by_tier_boxplot(predictions_df, customer_features_df):
             name=tier,
             marker_color=color,
             boxmean='sd',
+            fillcolor=color,
+            line=dict(color=color, width=2),
             hovertemplate='£%{y:,.2f}<extra></extra>'
         ))
     
-    fig.update_layout(
-        title='Total Spend Distribution by Churn Risk Tier',
-        yaxis_title='Total Purchase Amount (£)',
-        xaxis_title='Churn Risk Tier',
-        height=450,
-        showlegend=False
-    )
-    #fig.show()
-    return fig
+    fig.update_traces(boxpoints='outliers', jitter=0.25, pointpos=0)
+    return _apply_theme(fig, 'Total Spend Distribution by Churn Risk Tier', height=460, showlegend=False)
 
 
 def plot_recency_by_tier_violin(predictions_df, customer_features_df):
@@ -76,21 +102,13 @@ def plot_recency_by_tier_violin(predictions_df, customer_features_df):
             y=df_tier['days_since_last_purchase'],
             name=tier,
             fillcolor=color,
-            opacity=0.6,
+            opacity=0.78,
             box_visible=True,
             meanline_visible=True,
             hovertemplate='%{y} days<extra></extra>'
         ))
     
-    fig.update_layout(
-        title='Days Since Last Purchase by Churn Risk Tier',
-        yaxis_title='Days Since Last Purchase',
-        xaxis_title='Churn Risk Tier',
-        height=450,
-        showlegend=False
-    )
-    
-    return fig
+    return _apply_theme(fig, 'Days Since Last Purchase by Churn Risk Tier', height=460, showlegend=False)
 
 
 def plot_order_frequency_by_tier(predictions_df, customer_features_df):
@@ -115,18 +133,13 @@ def plot_order_frequency_by_tier(predictions_df, customer_features_df):
             name=tier,
             marker_color=color,
             boxmean='sd',
+            fillcolor=color,
+            line=dict(color=color, width=2),
             hovertemplate='%{y} orders<extra></extra>'
         ))
     
-    fig.update_layout(
-        title='Order Frequency by High-Value Tier',
-        yaxis_title='Number of Orders',
-        xaxis_title='High-Value Tier',
-        height=450,
-        showlegend=False
-    )
-    
-    return fig
+    fig.update_traces(boxpoints='outliers', jitter=0.22, pointpos=0)
+    return _apply_theme(fig, 'Order Frequency by High-Value Tier', height=460, showlegend=False)
 
 
 def plot_avg_order_value_by_tier(predictions_df, customer_features_df):
@@ -150,21 +163,13 @@ def plot_avg_order_value_by_tier(predictions_df, customer_features_df):
             y=df_tier['avg_order_val'],
             name=tier,
             fillcolor=color,
-            opacity=0.6,
+            opacity=0.78,
             box_visible=True,
             meanline_visible=True,
             hovertemplate='£%{y:,.2f}<extra></extra>'
         ))
     
-    fig.update_layout(
-        title='Average Order Value by High-Value Tier',
-        yaxis_title='Average Order Value (£)',
-        xaxis_title='High-Value Tier',
-        height=450,
-        showlegend=False
-    )
-    
-    return fig
+    return _apply_theme(fig, 'Average Order Value by High-Value Tier', height=460, showlegend=False)
 
 
 def get_top_spenders_with_risk(predictions_df, customer_features_df, n=20):
@@ -241,13 +246,7 @@ def plot_feature_averages_by_churn_tier(predictions_df, customer_features_df):
             row=row, col=col
         )
     
-    fig.update_layout(
-        title='Average Feature Values by Churn Risk Tier',
-        height=600,
-        showlegend=False
-    )
-    
-    return fig
+    return _apply_theme(fig, 'Average Feature Values by Churn Risk Tier', height=610, showlegend=False)
 
 def behav_plots(predictions_df, customer_features_df):
     print("\n CATEGORY 2: Customer Behavior Visuals...")

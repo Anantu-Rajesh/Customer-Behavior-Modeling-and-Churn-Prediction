@@ -14,7 +14,11 @@ from src.models import high_risk_customer as high_risk_lib
 from src.models import high_val_customer as high_val_lib
 from src.visualization import visual
 from src.models import save_all
-
+'''
+churn k liye nlp+unsup labels
+high val k liye nlp+unsup labels
+high risk k liye baseline
+'''
 
 def ensure_dirs():
     os.makedirs("stuff", exist_ok=True)
@@ -44,7 +48,7 @@ def run_train_pipeline():
     clean_df = cd.clean_data(raw_df)
     umap_reducer,product_kmeans=fe.feature_eng(clean_df) 
 
-    customer_df = ld.load_and_describe_data(config.customer_filepath)
+    customer_df = ld.load_and_describe_data(config.customer_filepath) #ye h apun ka baseline training ka dataset
     scaler, X_scaled, pca, X_pca = util.utils(customer_df)
 
     cluster_model, cluster_labels = cl.cluster_final(X_pca)
@@ -60,11 +64,13 @@ def run_train_pipeline():
         "primary_product_cluster": -1,
         "product_cluster_entropy": 0
     })
-    labeled_nlp_df.to_csv(config.customer_nlp_filepath_with_labels, index=False)
+    labeled_nlp_df.to_csv(config.customer_nlp_filepath_with_labels, index=False) #ye h apun ka nlp+unsupervised ka dataset
 
-    X_churn,X_train_churn, X_test_churn, y_train_churn, y_test_churn, supervised_scaler = util.churn_data(labeled_nlp_df, model_type="linear")
+    X_churn, X_train_churn, X_test_churn, y_train_churn, y_test_churn, supervised_scaler = util.churn_data(labeled_nlp_df, model_type="linear")
+    X_churn_tree, X_train_churn_tree, X_test_churn_tree, y_train_churn_tree, y_test_churn_tree, _ = util.churn_data(labeled_nlp_df, model_type="tree")
     churn_model, churn_result_list = churn_model_lib.churn(
-        X_train_churn, y_train_churn, X_test_churn, y_test_churn
+        X_train_churn, y_train_churn, X_test_churn, y_test_churn,
+        X_train_churn_tree, y_train_churn_tree, X_test_churn_tree
     )
 
     churn_results = {
@@ -101,8 +107,8 @@ def run_train_pipeline():
     
     pred=[]
     
-    churn_probs=churn_model.predict_proba(X_churn)[:, 1]
-    churn_predictions=churn_model.predict(X_churn)  
+    churn_probs = churn_model_lib._ensemble_predict_proba(churn_model, X_churn, X_churn_tree)
+    churn_predictions = churn_model_lib._ensemble_predict(churn_model, X_churn, X_churn_tree)
     high_value_probs=high_value_model.predict_proba(X_hv)[:, 1]
     high_value_predictions=high_value_model.predict(X_hv)
     high_risk_probs=high_risk_model.predict_proba(X_hr)[:, 1]
@@ -136,7 +142,7 @@ def run_train_pipeline():
 
     predictions_df.to_csv('./data/customer_predictions.csv', index=False)
     
-    visual.run_visuals(predictions_df, labeled_nlp_df)
+    visual.run_visuals(X_hr, X_churn_tree , X_hv, predictions_df, labeled_nlp_df)
     
     save_all.save_nlp(umap_reducer, product_kmeans)
 

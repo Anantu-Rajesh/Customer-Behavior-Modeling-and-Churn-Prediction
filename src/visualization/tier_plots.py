@@ -2,6 +2,39 @@ import pandas as pd
 import plotly.graph_objects as go
 
 
+PLOT_BG = "#ffffff"
+PAPER_BG = "#fbfdff"
+GRID = "#e8eef5"
+TEXT = "#1f2937"
+MUTED = "#64748b"
+
+
+def _apply_theme(fig, title, height=420, showlegend=True, legend_orientation="h"):
+    fig.update_layout(
+        title=dict(text=f"<b>{title}</b>", x=0.02, xanchor="left"),
+        template="plotly_white",
+        height=height,
+        showlegend=showlegend,
+        plot_bgcolor=PLOT_BG,
+        paper_bgcolor=PAPER_BG,
+        margin=dict(t=70, b=40, l=15, r=15),
+        font=dict(family="Trebuchet MS, sans-serif", color=TEXT, size=13),
+        legend=dict(
+            orientation=legend_orientation,
+            yanchor="bottom",
+            y=1.02,
+            xanchor="left",
+            x=0.0,
+            bgcolor="rgba(255,255,255,0.85)",
+            bordercolor="#e5e7eb",
+            borderwidth=1,
+        ),
+    )
+    fig.update_xaxes(showgrid=False, linecolor=GRID, tickfont=dict(color=MUTED))
+    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False, tickfont=dict(color=MUTED))
+    return fig
+
+
 CHURN_COLORS = {
     'Low Risk': '#2ecc71',      
     'Medium Risk': '#f39c12',   
@@ -32,17 +65,15 @@ def plot_tier_distribution_pie(df, tier_column, title, color_map):
         values=tier_counts.values,
         marker=dict(colors=colors),
         textinfo='label+percent',
-        textposition='auto',
-        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percent: %{percent}<extra></extra>'
+        textposition='inside',
+        hole=0.46,
+        sort=False,
+        pull=[0.03 for _ in tier_counts.index],
+        marker_line=dict(color='white', width=2),
+        hovertemplate='<b>%{label}</b><br>Count: %{value:,}<br>Percent: %{percent}<extra></extra>'
     )])
     
-    fig.update_layout(
-        title=title,
-        showlegend=True,
-        height=400
-    )
-    #fig.show()
-    return fig
+    return _apply_theme(fig, title, height=430, showlegend=True)
 
 
 def plot_churn_tier_distribution(df):
@@ -80,8 +111,8 @@ def plot_probability_histogram(df, prob_column, title, thresholds, colors):
         x=df[prob_column],
         nbinsx=40,
         marker=dict(
-            color='#3498db',
-            line=dict(color='white', width=1)
+            color='#2563eb',
+            line=dict(color='white', width=1.2)
         ),
         name='Distribution',
         hovertemplate='Probability: %{x:.2f}<br>Count: %{y}<extra></extra>'
@@ -106,15 +137,14 @@ def plot_probability_histogram(df, prob_column, title, thresholds, colors):
     fig.add_vline(x=thresholds['low'], line_dash="dash", line_color="gray", line_width=2)
     fig.add_vline(x=thresholds['high'], line_dash="dash", line_color="gray", line_width=2)
     
-    fig.update_layout(
-        title=title,
-        xaxis_title='Probability',
-        yaxis_title='Number of Customers',
-        height=400,
-        showlegend=False
+    fig.add_annotation(
+        x=0.5, y=1.08,
+        xref="paper", yref="paper",
+        text="Risk bands show the operational thresholds used for intervention prioritisation.",
+        showarrow=False,
+        font=dict(size=11, color=MUTED),
     )
-    #fig.show()
-    return fig
+    return _apply_theme(fig, title, height=430, showlegend=False)
 
 
 def plot_churn_probability_histogram(df):
@@ -163,9 +193,10 @@ def plot_churn_vs_value_scatter(df):
             name=tier,
             marker=dict(
                 color=HIGH_VALUE_COLORS[tier],
-                size=8,
-                opacity=0.6,
-                line=dict(width=0.5, color='white')
+                size=9,
+                opacity=0.72,
+                symbol='circle-open',
+                line=dict(width=0.8, color='white')
             ),
             hovertemplate=(
                 '<b>%{fullData.name}</b><br>'
@@ -175,58 +206,43 @@ def plot_churn_vs_value_scatter(df):
             )
         ))
 
-    fig.add_hline(y=0.70, line_dash="dash", line_color="gray", line_width=2, opacity=0.7)
-    fig.add_vline(x=0.70, line_dash="dash", line_color="gray", line_width=2, opacity=0.7)
+    fig.add_hline(y=0.70, line_dash="dash", line_color="#64748b", line_width=2, opacity=0.75)
+    fig.add_vline(x=0.70, line_dash="dash", line_color="#64748b", line_width=2, opacity=0.75)
 
     fig.add_annotation(
         x=0.2, y=0.85,
         text="<b>Champions</b><br>(Low Churn, High Value)",
         showarrow=False,
-        font=dict(size=11, color="green"),
-        bgcolor="rgba(255,255,255,0.8)",
+        font=dict(size=11, color="#065f46"),
+        bgcolor="rgba(236,253,245,0.92)",
         borderpad=4
     )
     fig.add_annotation(
         x=0.85, y=0.85,
         text="<b>🚨 At-Risk VIPs</b><br>(High Churn, High Value)",
         showarrow=False,
-        font=dict(size=11, color="red"),
-        bgcolor="rgba(255,255,255,0.8)",
+        font=dict(size=11, color="#991b1b"),
+        bgcolor="rgba(254,242,242,0.94)",
         borderpad=4
     )
     fig.add_annotation(
         x=0.2, y=0.2,
         text="<b>Standard Active</b><br>(Low Churn, Low Value)",
         showarrow=False,
-        font=dict(size=11, color="gray"),
-        bgcolor="rgba(255,255,255,0.8)",
+        font=dict(size=11, color="#475569"),
+        bgcolor="rgba(248,250,252,0.94)",
         borderpad=4
     )
     fig.add_annotation(
         x=0.85, y=0.2,
         text="<b>At-Risk</b><br>(High Churn, Low Value)",
         showarrow=False,
-        font=dict(size=11, color="orange"),
-        bgcolor="rgba(255,255,255,0.8)",
+        font=dict(size=11, color="#92400e"),
+        bgcolor="rgba(255,251,235,0.94)",
         borderpad=4
     )
     
-    fig.update_layout(
-        title='<b>Customer Segmentation: Churn Risk vs Value Potential</b>',
-        xaxis_title='Churn Probability',
-        yaxis_title='High-Value Probability',
-        height=600,
-        showlegend=True,
-        legend=dict(
-            title="Value Tier",
-            yanchor="top",
-            y=0.99,
-            xanchor="left",
-            x=0.01
-        )
-    )
-    #fig.show()
-    return fig
+    return _apply_theme(fig, 'Customer Segmentation: Churn Risk vs Value Potential', height=620, showlegend=True)
 
 
 def plot_segment_matrix_heatmap(df):
@@ -250,22 +266,22 @@ def plot_segment_matrix_heatmap(df):
         z=segment_matrix.values,
         x=segment_matrix.columns,
         y=segment_matrix.index,
-        colorscale='Blues',
+        colorscale=[
+            [0.0, '#eff6ff'],
+            [0.35, '#93c5fd'],
+            [0.7, '#3b82f6'],
+            [1.0, '#1d4ed8'],
+        ],
+        zsmooth='best',
         text=segment_matrix.values,
         texttemplate='%{text}',
-        textfont={"size": 16},
+        textfont={"size": 15, "color": '#0f172a'},
         hovertemplate='Churn: %{y}<br>Value: %{x}<br>Customers: %{z}<extra></extra>'
     ))
     
-    fig.update_layout(
-        title='Customer Segment Matrix (Churn × Value)',
-        xaxis_title='High-Value Tier',
-        yaxis_title='Churn Risk Tier',
-        height=400
-    )
+    fig.update_layout(coloraxis_showscale=False)
     
-    #fig.show()
-    return fig
+    return _apply_theme(fig, 'Customer Segment Matrix (Churn × Value)', height=440, showlegend=False)
 
 def plot_spend_by_churn_tier(df, customer_features_df):
     df_merged = df.merge(
@@ -287,19 +303,15 @@ def plot_spend_by_churn_tier(df, customer_features_df):
             name=tier,
             marker_color=color,
             boxmean='sd',
-            hovertemplate='%{y:.2f}<extra></extra>'
+            fillcolor=color,
+            line=dict(color=color, width=2),
+            whiskerwidth=0.8,
+            hovertemplate='£%{y:,.2f}<extra></extra>'
         ))
     
-    fig.update_layout(
-        title='Total Spend Distribution by Churn Risk Tier',
-        yaxis_title='Total Purchase Amount (£)',
-        xaxis_title='Churn Risk Tier',
-        height=400,
-        showlegend=False
-    )
+    fig.update_traces(boxpoints='outliers', jitter=0.25, pointpos=0)
     
-    #fig.show()
-    return fig
+    return _apply_theme(fig, 'Total Spend Distribution by Churn Risk Tier', height=430, showlegend=False)
 
 
 def plot_days_since_purchase_by_tier(df, customer_features_df):
@@ -321,20 +333,13 @@ def plot_days_since_purchase_by_tier(df, customer_features_df):
             y=df_tier['days_since_last_purchase'],
             name=tier,
             fillcolor=color,
-            opacity=0.6,
+            opacity=0.72,
             hovertemplate='%{y} days<extra></extra>'
         ))
     
-    fig.update_layout(
-        title='Days Since Last Purchase by Churn Risk Tier',
-        yaxis_title='Days Since Last Purchase',
-        xaxis_title='Churn Risk Tier',
-        height=400,
-        showlegend=False
-    )
+    fig.update_traces(meanline_visible=True, box_visible=True, spanmode='hard')
     
-    fig.show()
-    return fig
+    return _apply_theme(fig, 'Days Since Last Purchase by Churn Risk Tier', height=430, showlegend=False)
 
 def get_summary_metrics(df):
     df_active = get_active_customers(df)
@@ -347,9 +352,9 @@ def get_summary_metrics(df):
     metrics = {
         'total_customers': len(df),
         'high_churn_count': len(df[df['churn_tier'] == 'High Risk']),
-        'high_churn_pct': len(df[df['churn_tier'] == 'High Risk']) / len(df) * 100,
+        'high_churn_pct': (len(df[df['churn_tier'] == 'High Risk']) / len(df) * 100) if len(df) else 0,
         'vip_count': len(df_active[df_active['high_value_tier'] == 'VIP']),
-        'vip_pct': len(df_active[df_active['high_value_tier'] == 'VIP']) / len(df_active) * 100,
+        'vip_pct': (len(df_active[df_active['high_value_tier'] == 'VIP']) / len(df_active) * 100) if len(df_active) else 0,
         'at_risk_vips': at_risk_vips,
         'urgent_attention_count': len(df[df['high_risk_tier'] == 'Urgent Attention'])
     }
@@ -511,6 +516,45 @@ def get_segment_summary(df):
     result = pd.DataFrame(segments)
     result['Percentage'] = result['Percentage'].round(1)
     
+    return result
+
+
+def get_segment_behavior_summary_table(predictions_df, customer_features_df):
+    df_active = get_active_customers(predictions_df)
+    df_merged = df_active.merge(
+        customer_features_df[[
+            'customerid',
+            'total_purchase',
+            'days_since_last_purchase',
+            'count_orders'
+        ]],
+        on='customerid',
+        how='left'
+    )
+
+    segment_frames = [
+        ('Champions', (df_merged['churn_tier'] == 'Low Risk') & (df_merged['high_value_tier'] == 'VIP')),
+        ('At-Risk VIPs', (df_merged['churn_tier'] == 'High Risk') & (df_merged['high_value_tier'] == 'VIP')),
+        ('Growing Stars', (df_merged['churn_tier'] == 'Low Risk') & (df_merged['high_value_tier'] == 'Growing Potential')),
+        ('Potential Churners', (df_merged['churn_tier'].isin(['Medium Risk', 'High Risk'])) & (df_merged['high_value_tier'] == 'Growing Potential')),
+        ('At-Risk', (df_merged['churn_tier'] == 'High Risk') & (df_merged['high_value_tier'] == 'Standard')),
+        ('Standard Active', (df_merged['churn_tier'] == 'Low Risk') & (df_merged['high_value_tier'] == 'Standard')),
+    ]
+
+    rows = []
+    for segment_name, mask in segment_frames:
+        segment_df = df_merged[mask]
+        rows.append({
+            'Segment': segment_name,
+            'Avg Spend (£)': segment_df['total_purchase'].mean(),
+            'Avg Recency (Days)': segment_df['days_since_last_purchase'].mean(),
+            'Avg Order Frequency': segment_df['count_orders'].mean(),
+        })
+
+    result = pd.DataFrame(rows)
+    result['Avg Spend (£)'] = result['Avg Spend (£)'].round(2)
+    result['Avg Recency (Days)'] = result['Avg Recency (Days)'].round(1)
+    result['Avg Order Frequency'] = result['Avg Order Frequency'].round(1)
     return result
     
 def tier_plots(predictions_df):

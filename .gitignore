@@ -1,9 +1,12 @@
 # files n folders not required 
 .streamlit/
-data/raw/
+data/
 insights/
+outputs/
+stuff/
 visuals.txt
 INTERVIEW_PREPARATION.md
+results.docx
 
 # Python cache
 __pycache__/

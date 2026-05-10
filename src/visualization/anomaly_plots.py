@@ -20,35 +20,57 @@ HIGH_RISK_COLORS = {
     'Urgent Attention': '#e74c3c'   
 }
 
+PLOT_BG = '#ffffff'
+PAPER_BG = '#fbfdff'
+GRID = '#e8eef5'
+TEXT = '#1f2937'
+
+
+def _apply_theme(fig, title, height=420, showlegend=False):
+    fig.update_layout(
+        title=dict(text=f'<b>{title}</b>', x=0.02, xanchor='left'),
+        template='plotly_white',
+        height=height,
+        showlegend=showlegend,
+        plot_bgcolor=PLOT_BG,
+        paper_bgcolor=PAPER_BG,
+        margin=dict(t=70, b=40, l=15, r=15),
+        font=dict(family='Trebuchet MS, sans-serif', color=TEXT, size=13),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='left',
+            x=0.0,
+            bgcolor='rgba(255,255,255,0.85)',
+            bordercolor='#e5e7eb',
+            borderwidth=1,
+        ),
+    )
+    fig.update_xaxes(showgrid=False, linecolor=GRID)
+    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
+    return fig
+
 def get_active_customers(df):
     return df[df['high_value_tier'] != 'N/A (Churned)'].copy()
 
 def get_anomaly_summary(customer_features_df):
     if_anomalies = (customer_features_df['if_label'] == 1).sum() if 'if_label' in customer_features_df.columns else 0
-    lof_anomalies = (customer_features_df['lof_label'] == 1).sum() if 'lof_label' in customer_features_df.columns else 0
-    
-    if 'if_label' in customer_features_df.columns and 'lof_label' in customer_features_df.columns:
-        total_anomalies = ((customer_features_df['if_label'] == 1) | 
-                          (customer_features_df['lof_label'] == 1)).sum()
-    else:
-        total_anomalies = max(if_anomalies, lof_anomalies)
-    
+    total_anomalies = ((customer_features_df['if_label'] == 1)).sum()
     total_customers = len(customer_features_df)
     
     return {
         'total_anomalies': total_anomalies,
         'anomaly_percentage': (total_anomalies / total_customers * 100),
         'if_anomalies': if_anomalies,
-        'lof_anomalies': lof_anomalies,
         'total_customers': total_customers
     }
 
 
 def get_anomaly_customers_table(customer_features_df, predictions_df, n=20):
-    if 'if_label' in customer_features_df.columns and 'lof_label' in customer_features_df.columns:
+    if 'if_label' in customer_features_df.columns:
         df_anomalies = customer_features_df[
-            (customer_features_df['if_label'] == 1) | 
-            (customer_features_df['lof_label'] == 1)
+            (customer_features_df['if_label'] == 1)
         ].copy()
     else:
         print("Warning: Anomaly labels not found in customer_features_df")
@@ -90,9 +112,8 @@ def plot_anomaly_distribution_by_tier(customer_features_df, predictions_df):
         how='left'
     )
 
-    if 'if_label' in df_merged.columns and 'lof_label' in df_merged.columns:
-        df_merged['is_anomaly'] = ((df_merged['if_label'] == 1) | 
-                                   (df_merged['lof_label'] == 1)).astype(int)
+    if 'if_label' in df_merged.columns:
+        df_merged['is_anomaly'] = (df_merged['if_label'] == 1).astype(int)
     else:
         print("Warning: Anomaly labels not found")
         return go.Figure()
@@ -113,16 +134,7 @@ def plot_anomaly_distribution_by_tier(customer_features_df, predictions_df):
         textposition='auto',
         hovertemplate='<b>%{x}</b><br>Anomaly Rate: %{y:.1f}%<extra></extra>'
     )])
-    
-    fig.update_layout(
-        title='Anomaly Rate by Churn Risk Tier',
-        xaxis_title='Churn Tier',
-        yaxis_title='Percentage of Anomalies',
-        height=400,
-        showlegend=False
-    )
-    #fig.show()
-    return fig
+    return _apply_theme(fig, 'Anomaly Rate by Churn Risk Tier', height=430, showlegend=False)
 
 def anomaly_plots(predictions_df, customer_features_df):
 

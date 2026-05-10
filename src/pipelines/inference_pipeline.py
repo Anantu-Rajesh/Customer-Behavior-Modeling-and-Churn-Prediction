@@ -9,6 +9,7 @@ from src.data_preprocessing import load_data as ld
 from src.data_preprocessing import clean_data as cd
 from src.data_preprocessing import feature_eng as fe
 from src.models import util
+from src.models.churn import _ensemble_predict_proba, _ensemble_predict
 
 _MODELS_CACHE={}
 
@@ -19,14 +20,13 @@ def load_model():
         return _MODELS_CACHE
     
     models = {
-        'scaler': joblib.load('stuff/scaler.pkl'),
+        'scaler': joblib.load('stuff/unsupervised/scaler.pkl'),
         'churn': joblib.load('stuff/supervised/churn_model.pkl'),
         'high_value': joblib.load('stuff/supervised/high_value_model.pkl'),
         'high_risk': joblib.load('stuff/supervised/high_risk_model.pkl'),
         'pca': joblib.load('stuff/unsupervised/pca.pkl'),
         'cluster': joblib.load('stuff/unsupervised/cluster_model.pkl'),
         'isolation_forest': joblib.load('stuff/unsupervised/isolation_forest.pkl'),
-        'lof': joblib.load('stuff/unsupervised/lof_novelty.pkl'),
         'umap': joblib.load('stuff/nlp/umap_reducer.pkl'),
         'product_kmeans': joblib.load('stuff/nlp/product_kmeans.pkl'),
         'supervised_scaler': joblib.load('stuff/supervised/scaler.pkl')
@@ -65,15 +65,107 @@ def predict_all_customers(df):
 
     df = ld.normalise_col_names(df)
     df = cd.clean_data(df)
+
+    if 'invoicedate' not in df.columns:
+        raise ValueError("Required column 'InvoiceDate' (invoicedate) is missing after cleaning.")
+
+    df['invoicedate'] = pd.to_datetime(df['invoicedate'], errors='coerce')
+    invalid_dates = int(df['invoicedate'].isna().sum())
+    if invalid_dates > 0:
+        warnings.append(f"Dropped {invalid_dates} rows with invalid InvoiceDate values.")
+        df = df.dropna(subset=['invoicedate'])
+
+    if df.empty:
+        raise ValueError("No valid InvoiceDate values available after parsing. Ensure the uploaded file has a valid 'InvoiceDate' column in a recognisable date format.")
     
     ref_date = df['invoicedate'].max()
-    df_purchase = fe.purchase_features(df, ref_date)
-    df_cancel = fe.cancellation_features(df, ref_date)
-    customer_df = fe.merge_datasets(df_purchase, df_cancel)
-    customer_df = fe.derive_features(customer_df)
-    
-    '''num_cols = ['total_purchase', 'count_orders', 'tot_items', 'num_unique_products', 'avg_order_val', 'avg_items_per_order', 'product_diversity_ratio', 'max_order_val', 'min_order_val', 'std_order_val', 'days_since_last_purchase', 'days_since_first_purchase', 'purchase_span', 'avg_days_between_orders', 'total_cancellation_count', 'total_cancellation_amnt', 'total_cancelled_qty', 'days_since_last_cancellation', 'cancellation_rate', 'order_completion_rate', 'return_purchase_ratio', 'per_day_purchase_amnt']
-    print(f"Numerical columns: {num_cols}")'''
+    df_before = df.copy()  
+    if df_before.empty:
+        raise ValueError("No transactions exist before the reference date. Dataset may be too short.")
+
+    purchases = df_before[~df_before['is_cancellation']].copy()
+
+    order_totals = purchases.groupby(['customerid', 'invoiceno']).agg(
+        order_total=('purchase_amnt', 'sum')
+    ).reset_index()
+
+    df_purchase = purchases.groupby('customerid').agg(
+        total_purchase=('purchase_amnt', 'sum'),
+        count_orders=('invoiceno', 'nunique'),
+        tot_items=('purchase_qty', 'sum'),
+        first_purchase_date=('invoicedate', 'min'),
+        last_purchase_date=('invoicedate', 'max'),
+        num_unique_products=('stockcode', 'nunique')
+    ).reset_index()
+
+    order_features = order_totals.groupby('customerid').agg(
+        max_order_val=('order_total', 'max'),
+        min_order_val=('order_total', 'min'),
+        std_order_val=('order_total', 'std')
+    ).reset_index()
+
+    df_purchase['avg_order_val'] = df_purchase['total_purchase'] / df_purchase['count_orders']
+    df_purchase['avg_items_per_order'] = df_purchase['tot_items'] / df_purchase['count_orders']
+    df_purchase['product_diversity_ratio'] = np.where(
+        df_purchase['tot_items'] > 0,
+        df_purchase['num_unique_products'] / df_purchase['tot_items'],
+        0
+    )
+    df_purchase = df_purchase.merge(order_features, on='customerid', how='left')
+
+    df_purchase['first_purchase_date'] = pd.to_datetime(df_purchase['first_purchase_date'])
+    df_purchase['last_purchase_date'] = pd.to_datetime(df_purchase['last_purchase_date'])
+    df_purchase['days_since_last_purchase'] = (ref_date - df_purchase['last_purchase_date']).dt.days
+    df_purchase['days_since_first_purchase'] = (ref_date - df_purchase['first_purchase_date']).dt.days
+    df_purchase['purchase_span'] = (df_purchase['last_purchase_date'] - df_purchase['first_purchase_date']).dt.days
+    df_purchase['avg_days_between_orders'] = df_purchase.apply(
+        lambda row: row['purchase_span'] / (row['count_orders'] - 1) if row['count_orders'] > 1 else 0, axis=1
+    )
+    df_purchase['std_order_val'] = df_purchase['std_order_val'].fillna(0)
+    df_purchase['min_order_val'] = df_purchase['min_order_val'].fillna(df_purchase['max_order_val'])
+
+    cancellations = df_before[df_before['is_cancellation']].copy()
+    df_cancel = cancellations.groupby('customerid').agg(
+        total_cancellation_count=('invoiceno', 'nunique'),
+        total_cancellation_amnt=('cancel_amnt', 'sum'),
+        total_cancelled_qty=('cancel_qty', 'sum'),
+        last_cancel_date=('invoicedate', 'max')
+    ).reset_index()
+    df_cancel['last_cancel_date'] = pd.to_datetime(df_cancel['last_cancel_date'])
+    df_cancel['days_since_last_cancellation'] = (ref_date - df_cancel['last_cancel_date']).dt.days
+
+    customer_df = df_purchase.merge(df_cancel, on='customerid', how='left')
+    customer_df['total_cancellation_count'] = customer_df['total_cancellation_count'].fillna(0)
+    customer_df['total_cancellation_amnt'] = customer_df['total_cancellation_amnt'].fillna(0)
+    customer_df['total_cancelled_qty'] = customer_df['total_cancelled_qty'].fillna(0)
+    customer_df['days_since_last_cancellation'] = customer_df['days_since_last_cancellation'].fillna(
+        customer_df['days_since_first_purchase']
+    )
+
+    customer_df['cancellation_rate'] = (
+        customer_df['total_cancellation_count'] / 
+        (customer_df['count_orders'] + customer_df['total_cancellation_count'])
+    ).fillna(0)
+    customer_df['return_purchase_ratio'] = np.where(
+        customer_df['tot_items'] > 0,
+        customer_df['total_cancelled_qty'] / customer_df['tot_items'], 0
+    ).astype(float)
+    customer_df['return_purchase_ratio'] = customer_df['return_purchase_ratio'].replace([np.inf, -np.inf], 0)
+    customer_df['per_day_purchase_amnt'] = np.where(
+        customer_df['days_since_first_purchase'] > 0,
+        customer_df['total_purchase'] / customer_df['days_since_first_purchase'], 0
+    )
+    customer_df['order_completion_rate'] = np.where(
+        (customer_df['count_orders'] + customer_df['total_cancellation_count']) > 0,
+        customer_df['count_orders'] / (customer_df['count_orders'] + customer_df['total_cancellation_count']), 0
+    )
+    customer_df['activity_gap'] = 0
+    multi_order = customer_df['count_orders'] > 1
+    customer_df.loc[multi_order, 'activity_gap'] = (
+        customer_df.loc[multi_order, 'days_since_last_purchase'] > 
+        2 * customer_df.loc[multi_order, 'avg_days_between_orders']
+    ).astype(int)
+    customer_df = customer_df.replace([np.inf, -np.inf], 0)
     
     cluster_df = util.cluster_data(customer_df)
     cluster_df = util.skew_handle(cluster_df)
@@ -86,10 +178,7 @@ def predict_all_customers(df):
     if_labels = models['isolation_forest'].predict(cluster_df_pca)
     if_scores = models['isolation_forest'].score_samples(cluster_df_pca)
     
-    lof_labels = models['lof'].predict(cluster_df_pca)
-    lof_scores = models['lof'].score_samples(cluster_df_pca)
-    
-    customer_df_labeled = util.label_assign(cluster_labels, if_labels, if_scores, lof_labels, lof_scores, customer_df)
+    customer_df_labeled = util.label_assign(cluster_labels, if_labels, if_scores, None, None, customer_df)
     
     products = df[['stockcode', 'description']].drop_duplicates()
     products = products[products['description'].notna()]
@@ -112,53 +201,25 @@ def predict_all_customers(df):
     'primary_product_cluster': -1,
     'product_cluster_entropy': 0
     })
-    
+
+    if 'churn' not in customer_df_final.columns:
+        customer_df_final['churn'] = 0
+    if 'high_value_customer' not in customer_df_final.columns:
+        customer_df_final['high_value_customer'] = 0
+    if 'high_future_cancellation' not in customer_df_final.columns:
+        customer_df_final['high_future_cancellation'] = 0
+
     X = customer_df_final.copy()
-    drop_cols=['customerid','high_value_customer','high_future_cancellation', 'first_purchase_date', 'last_purchase_date','last_cancel_date','cluster_name']
-    label_cols=['cluster_label','if_label','lof_label']
-    for col in drop_cols:
-        if col in X.columns:
-            X.drop(columns=col, inplace=True)
-    
-    for col in label_cols:
-        if col in X.columns:
-            X = pd.get_dummies(X, columns=[col], drop_first=True) # X can be used directly for high value and high risk as those are tree based models
-    
-    churn_X = util.skew_handle(X.copy())
-    
-    numeric_cols = churn_X.select_dtypes(include=[np.number]).columns.tolist()
-    cols_to_scale = [col for col in numeric_cols if col not in label_cols]
+    churn_X = util.prepare_for_inference(X, models, model_key='churn', model_type='linear',scaler_key='supervised_scaler')
+    churn_X_tree = util.prepare_for_inference(X, models, model_key='churn', model_type='tree')
+    X_hv = util.prepare_for_inference(X, models, model_key='high_value', model_type='tree')
+    X_hr = util.prepare_for_inference(customer_df, models, model_key='high_risk', model_type='tree')
         
-    if cols_to_scale:
-        churn_X[cols_to_scale] = models['supervised_scaler'].transform(churn_X[cols_to_scale])
-
-    if hasattr(models['churn'], 'feature_names_in_'):
-        for col in models['churn'].feature_names_in_:
-            if col not in churn_X.columns:
-                churn_X[col] = 0
-        churn_X = churn_X[list(models['churn'].feature_names_in_)]
-
-    if hasattr(models['high_value'], 'feature_names_in_'):
-        for col in models['high_value'].feature_names_in_:
-            if col not in X.columns:
-                X[col] = 0
-        X_hv = X[list(models['high_value'].feature_names_in_)]
-    else:
-        X_hv = X
-
-    if hasattr(models['high_risk'], 'feature_names_in_'):
-        for col in models['high_risk'].feature_names_in_:
-            if col not in X.columns:
-                X[col] = 0
-        X_hr = X[list(models['high_risk'].feature_names_in_)]
-    else:
-        X_hr = X
-        
-    churn_probs=models['churn'].predict_proba(churn_X)[:, 1]
+    churn_probs=_ensemble_predict_proba(models['churn'], churn_X, churn_X_tree)
     high_value_probs=models['high_value'].predict_proba(X_hv)[:, 1]
     high_risk_probs=models['high_risk'].predict_proba(X_hr)[:, 1]
     
-    churn_predictions=models['churn'].predict(churn_X)
+    churn_predictions=_ensemble_predict(models['churn'], churn_X, churn_X_tree)
     high_value_predictions=models['high_value'].predict(X_hv)
     high_risk_predictions=models['high_risk'].predict(X_hr)
     

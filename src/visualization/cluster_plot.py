@@ -20,6 +20,37 @@ HIGH_RISK_COLORS = {
     'Urgent Attention': '#e74c3c'   
 }
 
+PLOT_BG = '#ffffff'
+PAPER_BG = '#fbfdff'
+GRID = '#e8eef5'
+TEXT = '#1f2937'
+
+
+def _apply_theme(fig, title, height=420, showlegend=True):
+    fig.update_layout(
+        title=dict(text=f'<b>{title}</b>', x=0.02, xanchor='left'),
+        template='plotly_white',
+        height=height,
+        showlegend=showlegend,
+        plot_bgcolor=PLOT_BG,
+        paper_bgcolor=PAPER_BG,
+        margin=dict(t=70, b=40, l=15, r=15),
+        font=dict(family='Trebuchet MS, sans-serif', color=TEXT, size=13),
+        legend=dict(
+            orientation='h',
+            yanchor='bottom',
+            y=1.02,
+            xanchor='left',
+            x=0.0,
+            bgcolor='rgba(255,255,255,0.85)',
+            bordercolor='#e5e7eb',
+            borderwidth=1,
+        ),
+    )
+    fig.update_xaxes(showgrid=False, linecolor=GRID)
+    fig.update_yaxes(showgrid=True, gridcolor=GRID, zeroline=False)
+    return fig
+
 def get_active_customers(df):
     return df[df['high_value_tier'] != 'N/A (Churned)'].copy()
 
@@ -39,18 +70,15 @@ def plot_cluster_distribution_pie(customer_features_df):
     fig = go.Figure(data=[go.Pie(
         labels=labels,
         values=cluster_counts.values,
-        marker=dict(colors=colors),
+        hole=0.45,
+        pull=[0.02 for _ in labels],
+        marker=dict(colors=colors, line=dict(color='white', width=2)),
         textinfo='label+percent',
-        hovertemplate='<b>%{label}</b><br>Count: %{value}<br>Percent: %{percent}<extra></extra>'
+        textposition='inside',
+        sort=False,
+        hovertemplate='<b>%{label}</b><br>Count: %{value:,}<br>Percent: %{percent}<extra></extra>'
     )])
-    
-    fig.update_layout(
-        title='Customer Cluster Distribution (Unsupervised Segmentation)',
-        height=400,
-        showlegend=True
-    )
-    #fig.show()
-    return fig
+    return _apply_theme(fig, 'Customer Cluster Distribution (Unsupervised Segmentation)', height=430, showlegend=True)
 
 
 def get_cluster_profile_table(customer_features_df, predictions_df):
@@ -123,16 +151,7 @@ def plot_churn_rate_by_cluster(customer_features_df, predictions_df):
         textposition='auto',
         hovertemplate='<b>%{x}</b><br>Churn Rate: %{y:.1f}%<extra></extra>'
     )])
-    
-    fig.update_layout(
-        title='Churn Rate by Customer Cluster',
-        xaxis_title='Cluster',
-        yaxis_title='Churn Rate (%)',
-        height=400,
-        showlegend=False
-    )
-    #fig.show()
-    return fig
+    return _apply_theme(fig, 'Churn Rate by Customer Cluster', height=430, showlegend=False)
 
 
 def plot_cluster_vs_tier_breakdown(customer_features_df, predictions_df):
@@ -155,7 +174,11 @@ def plot_cluster_vs_tier_breakdown(customer_features_df, predictions_df):
     ) * 100  
 
     tier_order = ['Low Risk', 'Medium Risk', 'High Risk']
-    crosstab = crosstab[tier_order]
+    tier_order = [t for t in tier_order if t in crosstab.columns]
+    if not tier_order:
+        tier_order = list(crosstab.columns)
+    if tier_order:
+        crosstab = crosstab[tier_order]
 
     crosstab.index = [cluster_names.get(i, f'Cluster {i}') for i in crosstab.index]
     
@@ -169,18 +192,57 @@ def plot_cluster_vs_tier_breakdown(customer_features_df, predictions_df):
             marker_color=CHURN_COLORS[tier],
             hovertemplate='<b>%{x}</b><br>' + tier + ': %{y:.1f}%<extra></extra>'
         ))
-    
-    fig.update_layout(
-        title='Churn Tier Distribution by Cluster',
-        xaxis_title='Cluster',
-        yaxis_title='Percentage of Customers',
-        barmode='stack',
-        height=450,
-        showlegend=True,
-        legend_title='Churn Tier'
-    )
-    #fig.show()
-    return fig
+
+    fig.update_layout(barmode='stack', legend_title='Churn Tier')
+    return _apply_theme(fig, 'Churn Tier Distribution by Cluster', height=470, showlegend=True)
+
+
+def plot_spend_distribution_by_cluster(customer_features_df):
+    cluster_names = {
+        0: 'One-Time Churners',
+        1: 'Engaged Regulars',
+        2: 'At-Risk Irregulars'
+    }
+
+    fig = go.Figure()
+    for cluster_id in sorted(customer_features_df['cluster_label'].dropna().unique()):
+        df_cluster = customer_features_df[customer_features_df['cluster_label'] == cluster_id]
+        fig.add_trace(go.Box(
+            y=df_cluster['total_purchase'],
+            name=cluster_names.get(cluster_id, f'Cluster {cluster_id}'),
+            boxmean='sd',
+            hovertemplate='£%{y:,.2f}<extra></extra>',
+        ))
+
+    return _apply_theme(fig, 'Spend Distribution by Cluster', height=440, showlegend=False)
+
+
+def plot_product_diversity_by_cluster(customer_features_df):
+    cluster_names = {
+        0: 'One-Time Churners',
+        1: 'Engaged Regulars',
+        2: 'At-Risk Irregulars'
+    }
+
+    if 'product_cluster_diversity' not in customer_features_df.columns:
+        return _apply_theme(go.Figure(), 'Product Diversity by Cluster', height=440, showlegend=False)
+
+    fig = go.Figure()
+    for cluster_id in sorted(customer_features_df['cluster_label'].dropna().unique()):
+        df_cluster = customer_features_df[customer_features_df['cluster_label'] == cluster_id]
+        fig.add_trace(go.Violin(
+            y=df_cluster['product_cluster_diversity'],
+            name=cluster_names.get(cluster_id, f'Cluster {cluster_id}'),
+            box_visible=True,
+            meanline_visible=True,
+            hovertemplate='%{y:.2f}<extra></extra>',
+        ))
+
+    return _apply_theme(fig, 'Product Diversity by Cluster', height=440, showlegend=False)
+
+
+def plot_cluster_vs_churn_rate(customer_features_df, predictions_df):
+    return plot_churn_rate_by_cluster(customer_features_df, predictions_df)
 
 def cluster_plots(predictions_df, customer_features_df):
     print("\n CATEGORY 3: Cluster Visualizations...")
@@ -191,6 +253,12 @@ def cluster_plots(predictions_df, customer_features_df):
     table_cluster = get_cluster_profile_table(customer_features_df, predictions_df)
     print("Cluster profile table")
     
+    fig_spend = plot_spend_distribution_by_cluster(customer_features_df)
+    print("Spend distribution by cluster")
+
+    fig_product = plot_product_diversity_by_cluster(customer_features_df)
+    print("Product diversity by cluster")
+
     fig_churn_cluster = plot_churn_rate_by_cluster(customer_features_df, predictions_df)
     print("Churn rate by cluster")
     
