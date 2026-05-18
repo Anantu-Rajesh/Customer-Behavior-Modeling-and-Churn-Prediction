@@ -1,5 +1,6 @@
 import numpy as np
 from src import config
+import joblib
 from src.data_preprocessing import load_data as ld
 from src.models import util
 from sklearn.naive_bayes import GaussianNB
@@ -130,7 +131,7 @@ def threshold(
         model_XGB, best_threshold_XGB, f1_tuned_XGB=XGB_check(X_train_tree, y_train_tree, X_test_tree, y_test_tree, params['xgboost'])
         stacking_check(X_train_linear, y_train_linear, X_test_linear, y_test_linear, X_train_tree, y_train_tree, X_test_tree, y_test_tree, params)
 
-    elif label == 'high_value':
+    if label == 'high_value':
         params = config.HIGH_VALUE_PARAMS
 
         model_SVM, best_threshold_SVM, f1_tuned_SVM=SVM_check(X_train_linear, y_train_linear, X_test_linear, y_test_linear, params['svm'])
@@ -145,16 +146,13 @@ def threshold(
         model_RF, best_threshold_RF, f1_tuned_RF=RF_check(X_train_tree_lbl, y_train_tree_lbl, X_test_tree_lbl, y_test_tree_lbl, params['random_forest'])
         model_XGB, best_threshold_XGB, f1_tuned_XGB=XGB_check(X_train_tree, y_train_tree, X_test_tree, y_test_tree, params['xgboost'])
         
-    
-        
-
 if __name__ == "__main__":
     df = ld.load_and_describe_data(config.customer_filepath)
     df_labels=ld.load_and_describe_data(config.customer_nlp_filepath_with_labels)
     df_high_val=df[df['churn']==0].copy()
     df_high_val_labels=df_labels[df_labels['churn']==0].copy()
     
-    ''' print(f"for churn prediction:\n")
+    print(f"for churn prediction:\n")
     X_train_linear, X_test_linear, y_train_linear, y_test_linear=util.churn_data(df_labels,model_type='linear')
     X_train_tree, X_test_tree, y_train_tree, y_test_tree=util.churn_data(df_labels,model_type='tree')
     threshold(X_train_linear, y_train_linear, X_test_linear, y_test_linear,X_train_tree, y_train_tree, X_test_tree, y_test_tree,None,None,None,None,label='churn')
@@ -163,10 +161,17 @@ if __name__ == "__main__":
     X_train_linear, X_test_linear, y_train_linear, y_test_linear=util.high_value_data(df_high_val,model_type='linear')
     X_train_tree, X_test_tree, y_train_tree, y_test_tree=util.high_value_data(df_high_val,model_type='tree')
     X_train_tree_lbl, X_test_tree_lbl, y_train_tree_lbl, y_test_tree_lbl=util.high_value_data(df_high_val_labels,model_type='tree')
-    threshold(X_train_linear, y_train_linear, X_test_linear, y_test_linear,X_train_tree, y_train_tree, X_test_tree, y_test_tree, X_train_tree_lbl, y_train_tree_lbl, X_test_tree_lbl, y_test_tree_lbl,label='high_value')'''
+    threshold(X_train_linear, y_train_linear, X_test_linear, y_test_linear,X_train_tree, y_train_tree, X_test_tree, y_test_tree, X_train_tree_lbl, y_train_tree_lbl, X_test_tree_lbl, y_test_tree_lbl,label='high_value')
     
     print("for high risk customer prediction:\n")
     X_train_linear, X_test_linear, y_train_linear, y_test_linear=util.high_risk_data(df,model_type='linear')
     X_train_tree, X_test_tree, y_train_tree, y_test_tree=util.high_risk_data(df,model_type='tree')
     X_train_tree_lbl, X_test_tree_lbl, y_train_tree_lbl, y_test_tree_lbl=util.high_risk_data(df_labels,model_type='tree')
     threshold(X_train_linear, y_train_linear, X_test_linear, y_test_linear,X_train_tree, y_train_tree, X_test_tree, y_test_tree, X_train_tree_lbl, y_train_tree_lbl, X_test_tree_lbl, y_test_tree_lbl,label='high_future_cancellation')
+    
+    ''' threshold checking on new model
+    X_train_hv, X_test_hv, y_train_hv, y_test_hv = util.high_value_data(df_high_val_labels, model_type="tree")
+    model = joblib.load('stuff/supervised/high_value_model.pkl')
+    y_prob_train = model.predict_proba(X_train_hv)[:, 1]
+    y_prob_test = model.predict_proba(X_test_hv)[:, 1]
+    tune_f1(y_train_hv, y_prob_train, y_test_hv, y_prob_test)'''

@@ -110,7 +110,7 @@ def run_train_pipeline():
     churn_probs = churn_model_lib._ensemble_predict_proba(churn_model, X_churn, X_churn_tree)
     churn_predictions = churn_model_lib._ensemble_predict(churn_model, X_churn, X_churn_tree)
     high_value_probs=high_value_model.predict_proba(X_hv)[:, 1]
-    high_value_predictions=high_value_model.predict(X_hv)
+    high_value_predictions = (high_value_probs >= 0.53).astype(int)
     high_risk_probs=high_risk_model.predict_proba(X_hr)[:, 1]
     high_risk_predictions=high_risk_model.predict(X_hr)
     

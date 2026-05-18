@@ -1,26 +1,11 @@
 Issues / ToDos:
 
 1. Frontend changes and improvements needed:
-    - the model insights page needs to be updated (churn ka model abhi change hua h)
-    - feature importance(in churn case) not shown
     - some overlapping plot headings(readability issues basically)
     - sidebar luks meh
 
-2. make all datasets/ plots downloadable:
-    - predictions df (already done bbg)
-    - customer lvl df (not done bbg)
-    - top or all anomalies (some logical error needs to be found and fixed bbg)
-    - top vips (already done bbg)
-    - cluster df (not done bbg)
-    - plots are already downloadable
-    PS: somewht done, some left will do properly
+2. Add comments in code so peeps can understand... but well, no one is as stupid as me so ig it aint tht much of a priority rn
 
-3. Documentation stuff, gotta add project folder structure in README file and refine other stuff 
-
-4. Add comments in code so peeps can understand... but well, no one is as stupid as me so ig it aint tht much of a priority rn
-
-5. Some "jugaad" in churn data prep due to model change...it works but ig ill try to make changes so 2 calls aint required (lets c :>)
-
-6. put all trained model(s) on drive share link incase sumn wants to download prebuilt models anol
+3. At risk VIPs handling issue (i suppose some name mismatch)
 
 PS: might(or might not) take a longggggggg time b4 i address these ig :)

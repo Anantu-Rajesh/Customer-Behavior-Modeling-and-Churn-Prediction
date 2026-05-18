@@ -220,37 +220,29 @@ def predict_all_customers(df):
     high_risk_probs=models['high_risk'].predict_proba(X_hr)[:, 1]
     
     churn_predictions=_ensemble_predict(models['churn'], churn_X, churn_X_tree)
-    high_value_predictions=models['high_value'].predict(X_hv)
+    high_value_predictions = (high_value_probs >= 0.53).astype(int)
     high_risk_predictions=models['high_risk'].predict(X_hr)
     
-    churn_tiers=util.create_churn_tiers(churn_probs)
-    high_value_tiers=util.create_high_value_tiers(high_value_probs)
-    high_risk_tiers=util.create_high_risk_tiers(high_risk_probs)
-    customer_df['churn_tier']=churn_tiers
-    customer_df['high_value_tier']=high_value_tiers
-    customer_df['high_risk_tier']=high_risk_tiers
-      
+    churn_tiers = util.create_churn_tiers(churn_probs)
+    high_value_tiers = util.create_high_value_tiers(high_value_probs)
+    high_risk_tiers = util.create_high_risk_tiers(high_risk_probs)
+
     predictions_df = pd.DataFrame({
-        'customerid': customer_df['customerid'].values,
+        'customerid': customer_df_final['customerid'].values,
         'churn_probability': churn_probs,
         'churn_prediction': churn_predictions,
         'churn_tier': churn_tiers,
-        'high_risk_probability': high_risk_probs,
-        'high_risk_prediction': high_risk_predictions,
-        'high_risk_tier': high_risk_tiers
-    })
-    
-    high_value_df = pd.DataFrame({
-        'customerid':customer_df_final['customerid'].values,
         'high_value_probability': high_value_probs,
         'high_value_prediction': high_value_predictions,
-        'high_value_tier': high_value_tiers
+        'high_value_tier': high_value_tiers,
+        'high_risk_probability': high_risk_probs,
+        'high_risk_prediction': high_risk_predictions,
+        'high_risk_tier': high_risk_tiers,
     })
-    predictions_df = predictions_df.merge(high_value_df, on='customerid', how='left')
-
-    predictions_df['high_value_probability'] = predictions_df['high_value_probability'].fillna(0)
-    predictions_df['high_value_prediction'] = predictions_df['high_value_prediction'].fillna(0)
-    predictions_df['high_value_tier'] = predictions_df['high_value_tier'].fillna('N/A (Churned)')
+    
+    churned_mask = predictions_df['churn_tier'] == 'High Risk'
+    non_vip_churned = churned_mask & (predictions_df['high_value_tier'] != 'VIP') & (predictions_df['high_value_tier'] != 'Growing Potential')
+    predictions_df.loc[non_vip_churned, 'high_value_tier'] = 'N/A (Churned)'
 
     upload_status = {
         'rows_in': str(raw_rows),

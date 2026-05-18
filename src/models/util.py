@@ -158,8 +158,15 @@ def prepare_for_inference(df, models, model_key=None, drop_cols=None, label_cols
     for col in label_cols:
         if col in X.columns:
             X = pd.get_dummies(X, columns=[col], drop_first=True)
+    
+    if model_key == 'high_value':
+        cap_cols = ['total_purchase', 'avg_order_val', 'max_order_val', 'per_day_purchase_amnt']
+        for col in cap_cols:
+            if col in X.columns:
+                X[col] = X[col].clip(upper=X[col].quantile(0.99))
 
-    X = skew_handle(X)
+    if model_type == 'linear':
+        X = skew_handle(X)
 
     if model_type == 'linear' and scaler_key and scaler_key in models:
         scaler = models[scaler_key]

@@ -41,7 +41,7 @@ pred_df = st.session_state.get("predictions_df", pd.DataFrame())
 feat_df = st.session_state.get("features_df", pd.DataFrame())
 
 models = inf.load_model() if st.session_state.get("data_loaded") and not pred_df.empty else {}
-churn_tree_df = util.prepare_for_inference(feat_df, models, model_key="churn", model_type="tree") if models else feat_df
+churn_tree_df = util.prepare_for_inference(feat_df.reset_index(drop=True), models, model_key="churn", model_type="tree") if models else feat_df
 high_value_tree_df = util.prepare_for_inference(feat_df, models, model_key="high_value", model_type="tree") if models else feat_df
 high_risk_tree_df = util.prepare_for_inference(feat_df, models, model_key="high_risk", model_type="tree") if models else feat_df
 
